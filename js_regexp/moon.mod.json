@@ -1,0 +1,9 @@
+{
+  "name": "mizchi/js_regexp",
+  "version": "0.0.4",
+  "readme": "README.md",
+  "repository": "https://github.com/mizchi/moonbit-libs/tree/main/moonbit_js_regexp",
+  "license": "MIT",
+  "keywords": ["regexp"],
+  "description": "JS RegExp binding"
+}

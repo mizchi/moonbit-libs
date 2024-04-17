@@ -1,0 +1,9 @@
+{
+  "is_main": true,
+  "import": [
+    {
+      "path": "mizchi/js_regexp",
+      "alias": "js_regexp"
+    }
+  ]
+}
