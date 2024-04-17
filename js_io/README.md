@@ -17,8 +17,8 @@ I need structured data api but not ready https://github.com/moonbitlang/moonbit-
 Moonbit API
 
 ```rust
-@js_io::new() -> IO // Create IO Context
-@js_io::from(id: Int) // Create IO Context from existed id
+let io = @js_io.new() // Create IO Context
+let io = @js_io.from(id: Int) // Create IO Context from existed id
 
 io.read_input() -> String // Read input
 io.write_output(text: String) -> Unit
@@ -46,7 +46,7 @@ const text = js_io.readOutputText(id); // read as text
 ```rust
 // Usage
 pub fn echo(id : Int) -> Unit {
-  let io = @js_io.IO::from(id)
+  let io = @js_io.from(id)
   let input = io.read_input()
   io.write_output("echo " + input)
 }
