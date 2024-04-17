@@ -98,3 +98,25 @@ function initialize_js_io() {
 }
 
 export const js_io = initialize_js_io();
+
+export function stringToString(remoteFn: (id: number) => void) {
+  const id = js_io.create()
+  return (input: string) => {
+    js_io.writeInputString(id, input);
+    remoteFn(id);
+    const result = js_io.readOutputString(id);
+    js_io.dispose(id)
+    return result;
+  }
+}
+
+export function bytesToBytes(remoteFn: (id: number) => void) {
+  const id = js_io.create()
+  return (input?: Uint8Array) => {
+    input && js_io.writeInputBytes(id, input);
+    remoteFn(id);
+    const result = js_io.readOutputBytes(id);
+    js_io.dispose(id)
+    return result;
+  }
+}
