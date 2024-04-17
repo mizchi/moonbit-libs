@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "target": "es2022",
+    "declaration": true,
+    "outDir": "dist"
+  },
+  "include": ["mod.ts", "js_string.ts"]
+}

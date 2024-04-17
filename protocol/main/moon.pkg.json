@@ -1,0 +1,14 @@
+{
+  "link": {
+    "wasm-gc": {
+      "exports": ["echo", "echo_bytes", "write_struct"]
+    }
+  },
+  "import": [
+    "mizchi/js_io",
+    {
+      "path": "mizchi/protocol",
+      "alias": "protocol"
+    }
+  ]
+}
