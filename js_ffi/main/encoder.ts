@@ -20,7 +20,7 @@ const decoder = new TextDecoder();
 export function intToBytes(value: number): Uint8Array {
   const buffer = new ArrayBuffer(4);
   const dataView = new DataView(buffer);
-  dataView.setInt32(0, value | 0);
+  dataView.setInt32(0, value | 0, true);
   return new Uint8Array(buffer);
 }
 
@@ -37,13 +37,25 @@ function encodeNull(): BinaryFormat {
   return [DataType.Null]
 }
 
-
 function encodeInt(value: number): BinaryFormat {
   const buf = intToBytes(value);
   return [DataType.Int, ...encodeLength(buf.byteLength), ...buf]
 }
 
-function encodeFloat(value: number): BinaryFormat {
+export function encodeFloat(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(8);
+  const dataView = new DataView(buffer);
+  dataView.setFloat64(0, value);
+  return new Uint8Array(buffer);
+}
+
+export function decodeFloat(buf: Uint8Array): number {
+  const dataView = new DataView(buf.buffer);
+  return dataView.getFloat64(0)
+}
+
+
+function encodeFloatItem(value: number): BinaryFormat {
   const buffer = new ArrayBuffer(8);
   const dataView = new DataView(buffer);
   dataView.setFloat64(0, value);
@@ -95,7 +107,7 @@ export function encodeItem(item: Item): number[] {
   } else if (Number.isInteger(item)) {
     return encodeInt(item)
   } else if (typeof item === 'number') {
-    return encodeFloat(item)
+    return encodeFloatItem(item)
   }
   throw new Error(`unknown item type: ${item}`)
 }
@@ -103,7 +115,7 @@ export function encodeItem(item: Item): number[] {
 function decodeLength(buffer: Uint8Array, offset: number): [len: number, offset: number] {
   const lenOfLen = buffer[offset++];
   const dataView = new DataView(buffer.buffer, offset, lenOfLen);
-  return [dataView.getInt32(0), offset + dataView.byteLength];
+  return [dataView.getInt32(0, true), offset + dataView.byteLength];
 }
 
 export function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
@@ -158,7 +170,7 @@ export function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, numbe
     return [str, end];
   } else if (dataType === DataType.Int) {
     const dataView = new DataView(buffer.buffer, offset, len);
-    return [dataView.getInt32(0), end];
+    return [dataView.getInt32(0, true), end];
   } else if (dataType === DataType.Float) {
     const dataView = new DataView(buffer.buffer, offset, len);
     return [dataView.getFloat64(0), end];
