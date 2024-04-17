@@ -14,10 +14,10 @@ let data_type_object = 0x07
 
 pub fn encode_int(value : Int) -> Bytes {
   let bytes = Bytes::make(4, 0)
-  bytes[3] = value.land(0xFF)
-  bytes[2] = value.lsr(8).land(0xFF)
-  bytes[1] = value.lsr(16).land(0xFF)
-  bytes[0] = value.lsr(24).land(0xFF)
+  bytes[0] = value.land(0xFF)
+  bytes[1] = value.lsr(8).land(0xFF)
+  bytes[2] = value.lsr(16).land(0xFF)
+  bytes[3] = value.lsr(24).land(0xFF)
   // }
   bytes
 }
@@ -51,24 +51,9 @@ fn encode_string(s : String) -> Bytes {
   bytes
 }
 
-// fn encode_float(f : Double) -> Bytes {
-//   let bits = f.reinterpret_as_i64()
-//   let bytes = Bytes::make(8, 0)
-//   bytes[0] = bits.lsr(56).land((0xFF).to_int64()).to_int()
-//   bytes[1] = bits.lsr(48).land((0xFF).to_int64()).to_int()
-//   bytes[2] = bits.lsr(40).land((0xFF).to_int64()).to_int()
-//   bytes[3] = bits.lsr(32).land((0xFF).to_int64()).to_int()
-//   bytes[4] = bits.lsr(24).land((0xFF).to_int64()).to_int()
-//   bytes[5] = bits.lsr(16).land((0xFF).to_int64()).to_int()
-//   bytes[6] = bits.lsr(8).land((0xFF).to_int64()).to_int()
-//   bytes[7] = bits.land((0xFF).to_int64()).to_int()
-//   bytes
-// }
 fn encode_float(f : Double) -> Bytes {
   let bits = f.reinterpret_as_i64() // 浮動小数点数を64ビット整数として解釈
   let bytes = Bytes::make(8, 0) // 8バイトの配列を作成し、初期値は0
-
-  // リトルエンディアン形式で各バイトを抽出
   bytes[7] = bits.lsr(56).land((0xFF).to_int64()).to_int()
   bytes[6] = bits.lsr(48).land((0xFF).to_int64()).to_int()
   bytes[5] = bits.lsr(40).land((0xFF).to_int64()).to_int()
@@ -104,6 +89,16 @@ fn encode_int_item(value : Int) -> Bytes {
   buf
 }
 
+fn encode_float_item(value : Double) -> Bytes {
+  let float_expr = encode_float(value)
+  let len_expr = encode_length(float_expr.length())
+  let buf = Bytes::make(1 + len_expr.length() + float_expr.length(), 0)
+  buf[0] = data_type_float
+  buf.blit(1, len_expr, 0, len_expr.length())
+  buf.blit(1 + len_expr.length(), float_expr, 0, float_expr.length())
+  buf
+}
+
 fn encode_null_item() -> Bytes {
   Bytes::make(1, data_type_null)
 }
@@ -135,19 +130,19 @@ fn encode_string_item(s : String) -> Bytes {
 }
 
 test "int_to_bytes" {
-  @assertion.assert_eq(bytes_to_array(encode_int(1)), [0, 0, 0, 1])?
+  @assertion.assert_eq(bytes_to_array(encode_int(1)), [1, 0, 0, 0])?
   @assertion.assert_eq(bytes_to_array(encode_int(-1)), [255, 255, 255, 255])?
-  @assertion.assert_eq(bytes_to_array(encode_int(-2)), [255, 255, 255, 254])?
+  @assertion.assert_eq(bytes_to_array(encode_int(-2)), [254, 255, 255, 255])?
 }
 
 test "encode_int" {
   @assertion.assert_eq(
     bytes_to_array(encode_int_item(1)),
-    [2, 4, 0, 0, 0, 4, 0, 0, 0, 1],
+    [2, 4, 4, 0, 0, 0, 1, 0, 0, 0],
   )?
   @assertion.assert_eq(
     bytes_to_array(encode_int_item(-1)),
-    [2, 4, 0, 0, 0, 4, 255, 255, 255, 255],
+    [2, 4, 4, 0, 0, 0, 255, 255, 255, 255],
   )?
 }
 
@@ -175,7 +170,7 @@ test "encode_string" {
   @assertion.assert_eq(
     bytes_to_array(encode_string_item("こんにちは")),
     [
-      1, 4, 0, 0, 0, 15, 227, 129, 147, 227, 130, 147, 227, 129, 171, 227, 129, 161,
+      1, 4, 15, 0, 0, 0, 227, 129, 147, 227, 130, 147, 227, 129, 171, 227, 129, 161,
       227, 129, 175,
     ],
   )?
@@ -185,9 +180,12 @@ test "encode_float" {
   let num = 3.14
   let bytes = encode_float(num)
   println(bytes_to_array(bytes))
-  let expected = [64, 9, 30, 184, 81, 235, 133, 31]
-  // TODO: Fix endian
+  let expected = [31, 133, 235, 81, 184, 30, 9, 64]
   @assertion.assert_eq(bytes_to_array(bytes), expected)?
+  @assertion.assert_eq(
+    bytes_to_array(encode_float_item(num)),
+    [3, 4, 8, 0, 0, 0, 31, 133, 235, 81, 184, 30, 9, 64],
+  )?
 }
 
 // println(encode_int_bytes)

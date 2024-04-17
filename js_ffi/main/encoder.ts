@@ -45,20 +45,20 @@ function encodeInt(value: number): BinaryFormat {
 export function encodeFloat(value: number): Uint8Array {
   const buffer = new ArrayBuffer(8);
   const dataView = new DataView(buffer);
-  dataView.setFloat64(0, value);
+  dataView.setFloat64(0, value, true);
   return new Uint8Array(buffer);
 }
 
 export function decodeFloat(buf: Uint8Array): number {
   const dataView = new DataView(buf.buffer);
-  return dataView.getFloat64(0)
+  return dataView.getFloat64(0, true)
 }
 
 
 function encodeFloatItem(value: number): BinaryFormat {
   const buffer = new ArrayBuffer(8);
   const dataView = new DataView(buffer);
-  dataView.setFloat64(0, value);
+  dataView.setFloat64(0, value, true);
   return [DataType.Float, ...encodeLength(dataView.byteLength), ...new Uint8Array(buffer)];
 }
 
@@ -173,7 +173,7 @@ export function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, numbe
     return [dataView.getInt32(0, true), end];
   } else if (dataType === DataType.Float) {
     const dataView = new DataView(buffer.buffer, offset, len);
-    return [dataView.getFloat64(0), end];
+    return [dataView.getFloat64(0, true), end];
   }
   throw new Error(`unknown data type: ${dataType}`)
 }
