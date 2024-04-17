@@ -1,0 +1,13 @@
+{
+  "link": {
+    "wasm-gc": {
+      "exports": ["write_hello", "echo"]
+    }
+  },
+  "import": [
+    {
+      "path": "mizchi/js_io",
+      "alias": "js_io"
+    }
+  ]
+}
