@@ -20,8 +20,10 @@ Moonbit API
 let io = @js_io.new() // Create IO Context
 let io = @js_io.from(id: Int) // Create IO Context from existed id
 
-io.read_input() -> String // Read input
-io.write_output(text: String) -> Unit
+io.read_input_string() -> String // Read input
+io.read_input_bytes() -> Bytes // Read input
+io.write_output_string(text: String) -> Unit
+io.write_output_bytes(bytes: Bytes) -> Unit
 ```
 
 JS API
@@ -36,8 +38,8 @@ await WebAssembly.instantiateStreaming(fetch("..."), { js_string, spectest, js_i
 
 // read and write
 const id = js_io.create();
-js_io.writeInput(id, "Hello"); // write input
-const buf = js_io.readOutput(id); // read as Uint8Array
+js_io.writeInputString(id, "Hello"); // write input
+const buf = js_io.readOutputBytes(id); // read as Uint8Array
 const text = js_io.readOutputText(id); // read as text
 ```
 
@@ -47,8 +49,8 @@ const text = js_io.readOutputText(id); // read as text
 // Usage
 pub fn echo(id : Int) -> Unit {
   let io = @js_io.from(id)
-  let input = io.read_input()
-  io.write_output("echo " + input)
+  let input = io.read_input_string()
+  io.write_output_string("echo " + input)
 }
 ```
 
@@ -69,9 +71,9 @@ exports._start();
 
 // echo
 const id = js_io.create();
-js_io.writeInput(id, "Hello");
+js_io.writeInputString(id, "Hello");
 exports.echo(id)
-console.log(js_io.readOutputText(id2)); // echo Hello
+console.log(js_io.readOutputString(id2)); // echo Hello
 ```
 
 ## How to develop

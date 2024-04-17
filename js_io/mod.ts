@@ -18,9 +18,10 @@ function initialize_js_io() {
     clear_input,
     clear_output,
     // js only api (yet)
-    writeInput,
-    readOutput,
-    readOutputText,
+    writeInputString,
+    writeInputBytes,
+    readOutputBytes,
+    readOutputString,
   }
   // create a new buffer in host from guest
   function create(): number {
@@ -34,7 +35,7 @@ function initialize_js_io() {
   }
 
   // read a char from buffer in host
-  function read_input(id: number) {
+  function read_input(id: number): number {
     const buf = cache.get(id)!;
     if (!buf) throw new Error('buf not found');
     const char = buf.input.shift();
@@ -60,7 +61,7 @@ function initialize_js_io() {
   }
 
   // js
-  function writeInput(id: number, text: string) {
+  function writeInputString(id: number, text: string) {
     const buf = cache.get(id)!;
     buf.input.length = 0;
     const encoder = new TextEncoder().encode(text);
@@ -69,15 +70,24 @@ function initialize_js_io() {
     }
   }
   // js
-  function readOutput(id: number): Uint8Array {
+  function writeInputBytes(id: number, bytes: Uint8Array) {
+    const buf = cache.get(id)!;
+    buf.input.length = 0;
+    for (const char of bytes) {
+      buf.input.push(char);
+    }
+  }
+
+  // js
+  function readOutputBytes(id: number): Uint8Array {
     const buf = cache.get(id)!;
     const b = new Uint8Array(buf.output.slice());
     buf.output.length = 0;
     return b;
   }
   // js
-  function readOutputText(id: number): string {
-    const buffer = readOutput(id);
+  function readOutputString(id: number): string {
+    const buffer = readOutputBytes(id);
     return new TextDecoder().decode(buffer);
   }
 

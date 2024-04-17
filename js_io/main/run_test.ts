@@ -14,14 +14,14 @@ exports._start();
 // remote write
 Deno.test("remote write", () => {
   const id = exports.write_hello();
-  const result = js_io.readOutputText(id);
+  const result = js_io.readOutputString(id);
   // console.log(result);
   assert(result === "Hello, World!");
   // remote read
   const id2 = js_io.create()
-  js_io.writeInput(id2, "Hello");
+  js_io.writeInputString(id2, "Hello");
   exports.echo(id2);
-  const ret2 = js_io.readOutputText(id2);
+  const ret2 = js_io.readOutputString(id2);
   assert(ret2 === "echo Hello");
   flush()
 });
