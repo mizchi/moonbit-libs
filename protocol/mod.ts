@@ -40,6 +40,7 @@ function encodeLength(len: number): [len: number, ...number[]] {
 }
 
 function encodeBoolean(value: boolean): BinaryFormat {
+  console.log("encodeBoolean", value, value ? 1 : 0)
   return [DataType.Boolean, value ? 1 : 0]
 }
 
@@ -111,7 +112,7 @@ function decodeLength(buffer: Uint8Array, offset: number): [len: number, offset:
 function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
   const dataType = buffer[offset++];
   if (dataType === DataType.Boolean) {
-    return [buffer[offset] === 1, offset + 1];
+    return [buffer[offset] == 1, offset + 1];
   }
   if (dataType === DataType.Null) {
     return [null, offset];
@@ -167,6 +168,4 @@ function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
   }
   throw new Error(`unknown data type: ${dataType}`)
 }
-
-
 

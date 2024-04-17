@@ -44,3 +44,11 @@ pub fn handle_struct_input(id : Int) -> Unit {
   }
   io.write_output_bytes(input)
 }
+
+pub fn encode_again(id : Int) -> Unit {
+  let io = @js_io.from(id)
+  let input = io.read_input_bytes()
+  let decoded = @protocol.decode(input)
+  let encoded = @protocol.encode(decoded)
+  io.write_output_bytes(encoded)
+}

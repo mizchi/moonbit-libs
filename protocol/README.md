@@ -14,9 +14,10 @@ See [working example](./main)
 ```rust
 pub fn write_struct(id : Int) -> Unit {
   let io = @js_io.from(id)
-  // get buffer from js
   let input = io.read_input_bytes()
-  // TODO: moonbit protocol decoder
+
+  // decode input as structured object : protocol.Item
+  let _decoded = @protocol.decode(input)
 
   // ["hello", 42]
   let v = @protocol.encode(
@@ -64,11 +65,13 @@ $ deno run -A script/test.ts
 ## TODO
 
 - [x] Moonbit Protocol Encoder
-- [ ] Moonbit Protocol Decoder
+- [x] Moonbit Protocol Decoder
 - [x] JS Protocol Encoder
 - [x] JS Protocol Decoder
-- [ ] Schema generator (zod, wit, or something?)
+- [ ] trait API
+- [ ] Schema generator (wit or something?)
 - [ ] Validator
+- [ ] Benchmark
 
 ## LICENSE
 

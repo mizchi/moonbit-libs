@@ -73,6 +73,22 @@ Deno.test("encode string over 256 length", () => {
 });
 
 
+Deno.test("encode true", () => {
+  const input = true;
+  const encoded = encode(input);
+  const decoded = decode(encoded);
+  expect(decoded).toEqual(input);
+});
+
+Deno.test("encode false", () => {
+  const input = false;
+  const encoded = encode(input);
+  const decoded = decode(encoded);
+  expect(decoded).toEqual(input);
+});
+
+
+
 Deno.test("encode array 1", () => {
   const input = [4];
   const encoded = encode(input);

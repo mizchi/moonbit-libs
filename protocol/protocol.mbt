@@ -322,10 +322,10 @@ test "encode_object" {
 
 pub fn decode(bytes : Bytes) -> Item {
   let (item, _size) = decode_part(bytes, 0)
+  // debug(item)
   // if size != bytes.length() {
   //   let data_type = bytes[0]
   //   let len = bytes.length()
-  // println("type: \(data_type) sized: \(sized) bytes.length: \(len))")
   // }
   item
 }
@@ -529,7 +529,7 @@ fn decode_part(bytes : Bytes, offset : Int) -> (Item, Int) {
     return (Item::Null, offset + 1)
   }
   if data_type == data_type_boolean {
-    let value = bytes[1] == 1
+    let value = bytes[offset + 1] == 1
     return (Item::Boolean(value), offset + 2)
   }
   if data_type == data_type_float {
@@ -555,8 +555,11 @@ fn assert_decoder(item : Item) -> Result[Unit, String] {
   Ok(())
 }
 
-test "decode" {
+test "decode_null" {
   assert_decoder(Item::Null)?
+}
+
+test "decode_boolean" {
   assert_decoder(Item::Boolean(true))?
   assert_decoder(Item::Boolean(false))?
 }
