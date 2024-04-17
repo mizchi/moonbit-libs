@@ -1,7 +1,7 @@
 {
   "link": {
     "wasm-gc": {
-      "exports": ["echo", "echo_bytes", "write_struct"]
+      "exports": ["echo", "echo_bytes", "write_struct", "handle_struct_input"]
     }
   },
   "import": [

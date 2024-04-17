@@ -20,7 +20,7 @@ pub enum Item {
   Null
   Array(Array[Item])
   Object(Array[(String, Item)])
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 pub fn encode(item : Item) -> Bytes {
   encode_part(item)

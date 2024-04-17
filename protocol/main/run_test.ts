@@ -1,7 +1,7 @@
 import { assert } from "https://deno.land/std@0.209.0/assert/assert.ts";
 import { js_string, spectest, flush, setMemory } from "../.mooncakes/mizchi/js_io/dist/js_string.js"
 import { js_io, stringToString, bytesToBytes } from "../.mooncakes/mizchi/js_io/dist/mod.js";
-import { decode } from "../mod.ts";
+import { decode, encode } from "../mod.ts";
 import { expect } from "https://deno.land/std@0.214.0/expect/expect.ts";
 
 // type IoLib = {
@@ -36,10 +36,26 @@ Deno.test("remote echo_bytes", () => {
 
 Deno.test("remote write_struct", () => {
   const write_struct = bytesToBytes(exports.write_struct);
-  const buf = write_struct(new Uint8Array([
-    1, 2, 3
-  ]));
+
+  const encoded_input = encode([42]);
+
+  const buf = write_struct(encoded_input);
   const decoded = decode(buf);
   expect(decoded).toEqual(["hello", 42]);
+  flush()
+});
+
+Deno.test("remote handle_struct_input", () => {
+  const handle_struct_input = bytesToBytes(exports.handle_struct_input);
+
+  const input = {
+    items: [1, 2, 3],
+    str: "hello",
+  }
+  const encoded_input = encode(input);
+
+  const buf = handle_struct_input(encoded_input);
+  const decoded = decode(buf);
+  expect(decoded).toEqual(input);
   flush()
 });
