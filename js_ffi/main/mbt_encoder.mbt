@@ -123,10 +123,79 @@ fn encode_string_item(s : String) -> Bytes {
   let len = encode_length(text_bytes.length())
   let bytes = Bytes::make(1 + len.length() + text_bytes.length(), 55)
   bytes[0] = data_type_string
-  println(bytes_to_array(len))
   bytes.blit(1, len, 0, len.length())
   bytes.blit(1 + len.length(), text_bytes, 0, text_bytes.length())
   bytes
+}
+
+enum Item {
+  Int(Int)
+  Float(Double)
+  String(String)
+  Boolean(Bool)
+  Null
+  Array(Array[Item])
+  Object(Array[(String, Item)])
+}
+
+fn append_bytes_to_vec(buf : @vec.Vec[Int], bytes : Bytes) -> Unit {
+  for i = 0; i < bytes.length(); i = i + 1 {
+    buf.push(bytes[i])
+    // buf[i] = bytes[i - offset]
+  }
+}
+
+fn encode_item(item : Item) -> Bytes {
+  match item {
+    Item::Int(v) => encode_int_item(v)
+    Item::Float(v) => encode_float_item(v)
+    Item::String(v) => encode_string_item(v)
+    Item::Boolean(v) => encode_boolean_item(v)
+    Item::Null => encode_null_item()
+    Item::Array(items) => {
+      let buf = @vec.Vec::[]
+      buf.push(data_type_array)
+      append_bytes_to_vec(buf, encode_length(items.length()))
+      for i = 0; i < items.length(); i = i + 1 {
+        let item = items[i]
+        let item_expr = encode_item(item)
+        append_bytes_to_vec(buf, item_expr)
+      }
+      let bytes = Bytes::make(buf.length(), 0)
+      for i = 0; i < buf.length(); i = i + 1 {
+        bytes[i] = buf[i]
+      }
+      bytes
+    }
+    Item::Object(members) => {
+      let buf = @vec.Vec::[]
+      buf.push(data_type_object)
+      append_bytes_to_vec(buf, encode_length(members.length()))
+      for i = 0; i < members.length(); i = i + 1 {
+        let (key, item) = members[i]
+        let key_expr = encode_string_item(key)
+        append_bytes_to_vec(buf, key_expr)
+        let item_expr = encode_item(item)
+        append_bytes_to_vec(buf, item_expr)
+      }
+      // to bytes
+      let bytes = Bytes::make(buf.length(), 0)
+      for i = 0; i < buf.length(); i = i + 1 {
+        bytes[i] = buf[i]
+      }
+      bytes
+    }
+  }
+}
+
+test "encode_length" {
+  @assertion.assert_eq(bytes_to_array(encode_length(1)), [4, 1, 0, 0, 0])?
+  @assertion.assert_eq(bytes_to_array(encode_length(2)), [4, 2, 0, 0, 0])?
+}
+
+test "encode_length" {
+  @assertion.assert_eq(bytes_to_array(encode_length(1)), [4, 1, 0, 0, 0])?
+  @assertion.assert_eq(bytes_to_array(encode_length(2)), [4, 2, 0, 0, 0])?
 }
 
 test "int_to_bytes" {
@@ -179,7 +248,6 @@ test "encode_string" {
 test "encode_float" {
   let num = 3.14
   let bytes = encode_float(num)
-  println(bytes_to_array(bytes))
   let expected = [31, 133, 235, 81, 184, 30, 9, 64]
   @assertion.assert_eq(bytes_to_array(bytes), expected)?
   @assertion.assert_eq(
@@ -188,17 +256,60 @@ test "encode_float" {
   )?
 }
 
-// println(encode_int_bytes)
-// for i = 0; i < 4; i = i + 1 {
-//   let nv = (v / pow(256, i) % 256 + 256) % 256
-//   println(nv)
-// }
-// println((4).lsl(2)) // 16
-// println((4).lsr(1)) // 2
+test "encode_item" {
+  @assertion.assert_eq(
+    bytes_to_array(encode_item(Item::Int(1))),
+    [2, 4, 4, 0, 0, 0, 1, 0, 0, 0],
+  )?
+  @assertion.assert_eq(
+    bytes_to_array(encode_item(Item::Float(3.14))),
+    [3, 4, 8, 0, 0, 0, 31, 133, 235, 81, 184, 30, 9, 64],
+  )?
+  @assertion.assert_eq(
+    bytes_to_array(encode_item(Item::String("hello"))),
+    [1, 4, 5, 0, 0, 0, 104, 101, 108, 108, 111],
+  )?
+  @assertion.assert_eq(bytes_to_array(encode_item(Item::Boolean(true))), [4, 1])?
+  @assertion.assert_eq(
+    bytes_to_array(encode_item(Item::Boolean(false))),
+    [4, 0],
+  )?
+  @assertion.assert_eq(bytes_to_array(encode_item(Item::Null)), [5])?
+}
 
-// @assertion.assert_eq(encode_int(10), [0, 0, 0, 10])?
-// @assertion.assert_eq(encode_int(-1), [255, 255, 255, 255])?
+test "encode_array" {
+  @assertion.assert_eq(
+    bytes_to_array(
+      encode_item(Item::Array([Item::Int(1), Item::Int(2), Item::Int(3)])),
+    ),
+    [
+      // data type
+      6,
+      // length
+       4, 3, 0, 0, 0,
+      // item: 0
+       2, 4, 4, 0, 0, 0, 1, 0, 0, 0,
+      // item: 1
+       2, 4, 4, 0, 0, 0, 2, 0, 0, 0,
+      // item: 2
+       2, 4, 4, 0, 0, 0, 3, 0, 0, 0,
+    ],
+  )?
+}
 
-// @assertion.assert_eq(encode_int(1), [0, 0, 0, 1])
-// @assertion.assert_eq(encode_int(0x12345678), [0x12, 0x34, 0x56, 0x78])
-// @assertion.assert_eq(encode_int(0x87654321), [0x87, 0x65, 0x43, 0x21])
+test "encode_object" {
+  @assertion.assert_eq(
+    bytes_to_array(
+      encode_item(
+        Item::Object(
+          [("a", Item::Int(1)), ("b", Item::Int(2)), ("c", Item::Int(3))],
+        ),
+      ),
+    ),
+    [
+      7, 4, 3, 0, 0, 0, 1, 4, 1, 0, 0, 0, 97, 2, 4, 4, 0, 0, 0, 1, 0, 0, 0, 1, 4,
+      1, 0, 0, 0, 98, 2, 4, 4, 0, 0, 0, 2, 0, 0, 0, 1, 4, 1, 0, 0, 0, 99, 2, 4, 4,
+      0, 0, 0, 3, 0, 0, 0,
+    ],
+  )?
+}
