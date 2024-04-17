@@ -8,6 +8,8 @@ fn jsio_clear_input(id : Int) = "js_io" "clear_input"
 
 fn jsio_clear_output(id : Int) = "js_io" "clear_output"
 
+fn jsio_dispose(id : Int) = "js_io" "dispose"
+
 pub struct IO {
   id : Int
 }
@@ -46,4 +48,8 @@ pub fn clear_input(self : IO) -> Unit {
 
 pub fn clear_output(self : IO) -> Unit {
   jsio_clear_output(self.id)
+}
+
+pub fn dispose(self : IO) -> Unit {
+  jsio_dispose(self.id)
 }

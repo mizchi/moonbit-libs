@@ -9,6 +9,8 @@ function initialize_js_io() {
   // singleton cache
   const cache = new Map<number, IO>();
   return {
+    // shared
+    dispose,
     // remote api
     create,
     read_input,
@@ -77,6 +79,11 @@ function initialize_js_io() {
   function readOutputText(id: number): string {
     const buffer = readOutput(id);
     return new TextDecoder().decode(buffer);
+  }
+
+  // js
+  function dispose(id: number): void {
+    cache.delete(id);
   }
 }
 
