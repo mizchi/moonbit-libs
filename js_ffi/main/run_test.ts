@@ -33,7 +33,6 @@ function wrapBytes(remoteFn: (id: number) => void) {
   }
 }
 
-
 // remote write
 Deno.test("remote write", () => {
   const echo = wrapString(exports.echo);
@@ -43,13 +42,11 @@ Deno.test("remote write", () => {
   flush()
 });
 
-
 // remote write
 Deno.test("remote writeBytes", () => {
   const echoBytes = wrapBytes(exports.echoBytes);
   const bytes = new TextEncoder().encode("Hello");
   const result = echoBytes(bytes);
   assert(new TextDecoder().decode(result) === "Hello")
-  // console.log(result);
   flush()
 });
