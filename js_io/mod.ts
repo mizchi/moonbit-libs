@@ -105,7 +105,8 @@ export function stringToString(remoteFn: (id: number) => void) {
     js_io.writeInputString(id, input);
     remoteFn(id);
     const result = js_io.readOutputString(id);
-    js_io.dispose(id)
+    js_io.clear_input(id)
+    js_io.clear_output(id)
     return result;
   }
 }
