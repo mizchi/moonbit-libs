@@ -321,7 +321,12 @@ test "encode_object" {
 /// --------- decode ----------
 
 pub fn decode(bytes : Bytes) -> Item {
-  let (item, _) = decode_part(bytes, 0)
+  let (item, _size) = decode_part(bytes, 0)
+  // if size != bytes.length() {
+  //   let data_type = bytes[0]
+  //   let len = bytes.length()
+  // println("type: \(data_type) sized: \(sized) bytes.length: \(len))")
+  // }
   item
 }
 
@@ -369,7 +374,7 @@ fn decode_int_part(bytes : Bytes, offset : Int) -> (Item, Int) {
   offset = end
   let val_slice = slice_bytes(bytes, offset, len)
   let value = decode_int(val_slice)
-  (Item::Int(value), offset)
+  (Item::Int(value), offset + len)
 }
 
 fn pow_double(base : Double, exp : Int) -> Double {
@@ -410,23 +415,137 @@ fn decode_float_part(bytes : Bytes, offset : Int) -> (Item, Int) {
   offset = end
   let val_slice = slice_bytes(bytes, offset, len)
   let value = decode_float(val_slice)
-  (Item::Float(value), offset)
+  (Item::Float(value), offset + len)
+}
+
+fn decode_array_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+  let mut offset = offset
+  let _data_type = bytes[offset]
+  offset += 1
+  let (item_count, end) = decode_length(bytes, offset)
+  // println(bytes_to_array(bytes))
+  offset = end
+  let items = @vec.Vec::[]
+  for i = 0; i < item_count; i = i + 1 {
+    let (child, child_end) = decode_part(bytes, offset)
+    items.push(child)
+    offset = child_end
+  }
+  (Item::Array(items.to_list().to_array()), offset)
+}
+
+fn decode_object_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+  let mut offset = offset
+  let _data_type = bytes[offset]
+  offset += 1
+  let (item_count, end) = decode_length(bytes, offset)
+  // println(bytes_to_array(bytes))
+  offset = end
+  let items : @vec.Vec[(String, Item)] = @vec.Vec::[]
+  for i = 0; i < item_count; i = i + 1 {
+    let (item, key_end) = decode_string_part(bytes, offset)
+    offset = key_end
+    match item {
+      Item::String(key) => {
+        let (child, child_end) = decode_part(bytes, offset)
+        items.push((key, child))
+        offset = child_end
+      }
+      _ =>
+        // TODO: panic
+        ()
+    }
+  }
+  (Item::Object(items.to_list().to_array()), offset)
+}
+
+// fn decode_object_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+//   let mut offset = offset
+//   let _data_type = bytes[offset]
+//   offset += 1
+//   let (item_count, end) = decode_length(bytes, offset)
+//   offset = end
+//   let items = @vec.Vec::[]
+//   for i = 0; i < item_count; i = i + 1 {
+//     let (child, key_end) = decode_string_part(bytes, offset)
+//     // items.push(child)
+//     offset = key_end
+
+//     // let (item, end) = decode_part(bytes, offset)
+//     offset = end
+//   }
+//   // TODO: Impl after decode_string_part
+//   (Item::Array([]), offset)
+// }
+
+fn decode_string(bytes : Bytes) -> String {
+  let mut result = ""
+  let mut i = 0
+  while i < bytes.length() {
+    let byte = bytes[i]
+    if byte < 0x80 {
+      // 1バイト文字
+      result += Char::from_int(byte).to_string()
+      i += 1
+    } else if byte < 0xE0 {
+      // 2バイト文字
+      let code = byte.lsl(6).land(0x7FF) + bytes[i + 1].land(0x3F)
+      result += Char::from_int(code).to_string()
+      i += 2
+    } else if byte < 0xF0 {
+      // 3バイト文字
+      let code = byte.lsl(12).land(0xFFFF) + bytes[i + 1].lsl(6).land(0xFFF) + bytes[i +
+        2].land(0x3F)
+      result += Char::from_int(code).to_string()
+      i += 3
+    } else {
+      // 4バイト文字
+      let code = byte.lsl(18).land(0x1FFFFF) + bytes[i + 1].lsl(12).land(
+          0x3FFFF,
+        ) + bytes[i + 2].lsl(6).land(0xFFF) + bytes[i + 3].land(0x3F)
+      result += Char::from_int(code).to_string()
+      i += 4
+    }
+  }
+  result
+}
+
+fn decode_string_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+  let mut offset = offset
+  let _data_type = bytes[offset]
+  offset += 1
+  let (len, end) = decode_length(bytes, offset)
+  offset = end
+  let val_slice = slice_bytes(bytes, offset, len)
+  // println(bytes_to_array(val_slice))
+  let value = decode_string(val_slice)
+  // TODO: Impl after decode_string_part
+  (Item::String(value), offset + len)
 }
 
 fn decode_part(bytes : Bytes, offset : Int) -> (Item, Int) {
-  let data_type = bytes[0]
+  let data_type = bytes[offset]
   if data_type == data_type_null {
-    return (Item::Null, offset)
+    return (Item::Null, offset + 1)
   }
   if data_type == data_type_boolean {
     let value = bytes[1] == 1
-    return (Item::Boolean(value), offset + 1)
+    return (Item::Boolean(value), offset + 2)
   }
   if data_type == data_type_float {
     return decode_float_part(bytes, offset)
   }
   if data_type == data_type_int {
     return decode_int_part(bytes, offset)
+  }
+  if data_type == data_type_string {
+    return decode_string_part(bytes, offset)
+  }
+  if data_type == data_type_array {
+    return decode_array_part(bytes, offset)
+  }
+  if data_type == data_type_object {
+    return decode_object_part(bytes, offset)
   }
   (Item::Null, offset)
 }
@@ -454,4 +573,32 @@ test "decode_float" {
   assert_decoder(Item::Float(3.14))?
   assert_decoder(Item::Float(5.5555))?
   assert_decoder(Item::Float(1000000.0))?
+}
+
+test "decode_string" {
+  // 1 byte character
+  assert_decoder(Item::String("hello"))?
+  assert_decoder(Item::String("world"))?
+  // 2 byte character
+  assert_decoder(Item::String("ああああ"))?
+  // 3 byte character
+  assert_decoder(Item::String("吉"))?
+}
+
+test "decode_array" {
+  // assert_decoder(Item::Array([Item::Int(1), Item::Int(2), Item::Int(3)]))?
+  assert_decoder(Item::Array([]))?
+  assert_decoder(Item::Array([Item::Null]))?
+  assert_decoder(Item::Array([Item::Int(1), Item::Int(2)]))?
+  assert_decoder(Item::Array([Item::Array([Item::Int(2)])]))?
+}
+
+test "decode_object" {
+  assert_decoder(Item::Object([]))?
+  assert_decoder(Item::Object([("a", Item::Int(1))]))?
+  assert_decoder(
+    Item::Object(
+      [("a", Item::Int(1)), ("b", Item::Int(1)), ("c", Item::Int(1))],
+    ),
+  )?
 }
