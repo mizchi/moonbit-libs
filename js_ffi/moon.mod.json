@@ -1,0 +1,13 @@
+{
+  "name": "mizchi/js_ffi",
+  "version": "0.0.1",
+  "deps": {
+    "mizchi/js_io": "0.0.4"
+  },
+  "readme": "README.md",
+  "repository": "https://github.com/mizchi/moonbit-libs/tree/main/js_io",
+  "license": "MIT",
+  "keywords": [
+    "js"
+  ]
+}

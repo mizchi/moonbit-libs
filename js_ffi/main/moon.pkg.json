@@ -1,0 +1,8 @@
+{
+  "link": {
+    "wasm-gc": {
+      "exports": ["echo", "echoBytes"]
+    }
+  },
+  "import": ["mizchi/js_io"]
+}
