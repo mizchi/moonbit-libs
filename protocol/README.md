@@ -1,6 +1,5 @@
 # mizchi/protocol
 
-Glue library to read/write string on JS WebAssembly
 
 ```bash
 $ moon add mizchi/js_io

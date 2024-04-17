@@ -1,30 +1,6 @@
 // cbor like binary format
 import { expect } from "https://deno.land/std@0.214.0/expect/mod.ts";
-import { decode, encode, intToBytes } from "./protocol.ts";
-
-Deno.test("encode_float", () => {
-  const buf = new ArrayBuffer(8);
-  const view = new DataView(buf);
-  view.setFloat64(0, 3.14, true);
-  const decoded = new DataView(buf).getFloat64(0, true);
-  expect(decoded).toBe(3.14);
-  // console.log(decoded);
-});
-
-Deno.test("int_to_bytes", () => {
-  const bytes = intToBytes(1);
-  expect(bytes).toEqual(new Uint8Array([1, 0, 0, 0]));
-});
-
-Deno.test("int_to_bytes", () => {
-  const bytes = intToBytes(-1);
-  expect(bytes).toEqual(new Uint8Array([255, 255, 255, 255]));
-});
-
-Deno.test("int_to_bytes", () => {
-  const bytes = intToBytes(-2);
-  expect(bytes).toEqual(new Uint8Array([254, 255, 255, 255]));
-});
+import { decode, encode } from "./mod.ts";
 
 Deno.test("encode int", () => {
   const input = 1;

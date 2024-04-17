@@ -10,14 +10,24 @@ const enum DataType {
 
 type BinaryFormat = [
   dataType: DataType,
-  // ...len: ...IntFormat,
   ...number[]
 ];
+
+export type Item = string | number | boolean | null | Array<Item> | { [key: string]: Item };
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-export function intToBytes(value: number): Uint8Array {
+export function decode(buffer: Uint8Array): Item {
+  const [decodedItem, _offset] = decodeItem(buffer);
+  return decodedItem
+}
+
+export function encode(item: Item): Uint8Array {
+  return new Uint8Array(encodeItem(item));
+}
+
+function intToBytes(value: number): Uint8Array {
   const buffer = new ArrayBuffer(4);
   const dataView = new DataView(buffer);
   dataView.setInt32(0, value | 0, true);
@@ -41,19 +51,6 @@ function encodeInt(value: number): BinaryFormat {
   const buf = intToBytes(value);
   return [DataType.Int, ...encodeLength(buf.byteLength), ...buf]
 }
-
-export function encodeFloat(value: number): Uint8Array {
-  const buffer = new ArrayBuffer(8);
-  const dataView = new DataView(buffer);
-  dataView.setFloat64(0, value, true);
-  return new Uint8Array(buffer);
-}
-
-export function decodeFloat(buf: Uint8Array): number {
-  const dataView = new DataView(buf.buffer);
-  return dataView.getFloat64(0, true)
-}
-
 
 function encodeFloatItem(value: number): BinaryFormat {
   const buffer = new ArrayBuffer(8);
@@ -84,14 +81,7 @@ function encodeObject(value: Record<string, Item>): BinaryFormat {
   return [DataType.Object, ...encodeLength(keyCount), ...items];
 }
 
-
-type Item = string | number | boolean | null | Array<Item> | { [key: string]: Item };
-
-export function encode(item: Item): Uint8Array {
-  return new Uint8Array(encodeItem(item));
-}
-
-export function encodeItem(item: Item): number[] {
+function encodeItem(item: Item): number[] {
   if (typeof item === 'object' && item !== null) {
     if (Array.isArray(item)) {
       return encodeArray(item);
@@ -104,8 +94,8 @@ export function encodeItem(item: Item): number[] {
     return encodeNull();
   } else if (typeof item === 'boolean') {
     return encodeBoolean(item);
-  } else if (Number.isInteger(item)) {
-    return encodeInt(item)
+  } else if (Number.isInteger(item) && typeof item === 'number') {
+    return encodeInt(item as number)
   } else if (typeof item === 'number') {
     return encodeFloatItem(item)
   }
@@ -118,7 +108,7 @@ function decodeLength(buffer: Uint8Array, offset: number): [len: number, offset:
   return [dataView.getInt32(0, true), offset + dataView.byteLength];
 }
 
-export function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
+function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
   const dataType = buffer[offset++];
   if (dataType === DataType.Boolean) {
     return [buffer[offset] === 1, offset + 1];
@@ -178,9 +168,5 @@ export function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, numbe
   throw new Error(`unknown data type: ${dataType}`)
 }
 
-export function decode(buffer: Uint8Array): Item {
-  const [decodedItem, _offset] = decodeItem(buffer);
-  return decodedItem
-}
 
 

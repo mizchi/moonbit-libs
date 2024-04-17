@@ -1,8 +1,12 @@
 import { assert } from "https://deno.land/std@0.209.0/assert/assert.ts";
 import { js_string, spectest, flush, setMemory } from "../.mooncakes/mizchi/js_io/dist/js_string.js"
-import { js_io } from "../.mooncakes/mizchi/js_io/dist/mod.js";
-import { decode } from "../protocol.ts";
+import { js_io, stringToString, bytesToBytes } from "../.mooncakes/mizchi/js_io/dist/mod.js";
+import { decode } from "../mod.ts";
 import { expect } from "https://deno.land/std@0.214.0/expect/expect.ts";
+
+// type IoLib = {
+//   writeInputString(id: number, input: string): void;
+// }
 
 const { instance } = await WebAssembly.instantiateStreaming(
   fetch(new URL("../target/wasm-gc/release/build/main/main.wasm", import.meta.url)),
@@ -12,28 +16,6 @@ const { instance } = await WebAssembly.instantiateStreaming(
 setMemory(instance.exports["moonbit.memory"]);
 const exports = instance.exports as any;
 exports._start();
-
-function stringToString(remoteFn: (id: number) => void) {
-  const id = js_io.create()
-  return (input: string) => {
-    js_io.writeInputString(id, input);
-    remoteFn(id);
-    const result = js_io.readOutputString(id);
-    js_io.dispose(id)
-    return result;
-  }
-}
-
-function bytesToBytes(remoteFn: (id: number) => void) {
-  const id = js_io.create()
-  return (input?: Uint8Array) => {
-    input && js_io.writeInputBytes(id, input);
-    remoteFn(id);
-    const result = js_io.readOutputBytes(id);
-    js_io.dispose(id)
-    return result;
-  }
-}
 
 // remote write
 Deno.test("remote echo", () => {
