@@ -117,7 +117,9 @@ export function bytesToBytes(remoteFn: (id: number) => void) {
     input && js_io.writeInputBytes(id, input);
     remoteFn(id);
     const result = js_io.readOutputBytes(id);
-    js_io.dispose(id)
+    // js_io.dispose(id)
+    js_io.clear_input(id)
+    js_io.clear_output(id)
     return result;
   }
 }
