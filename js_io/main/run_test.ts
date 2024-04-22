@@ -1,27 +1,35 @@
-import { assert } from "https://deno.land/std@0.209.0/assert/assert.ts";
-import { js_string, spectest, flush, setMemory } from "../dist/js_string.js"
-import { js_io } from "../dist/mod.js";
+import { js_string, spectest, flush, setMemory, readBuffer, writeBuffer, setBufferOffset, writeString, readString } from "../mod.ts";
+import { expect } from "jsr:@std/expect@0.223.0";
 
 const { instance } = await WebAssembly.instantiateStreaming(
   fetch(new URL("../target/wasm-gc/release/build/main/main.wasm", import.meta.url)),
-  { js_string, spectest, js_io: js_io }
+  { js_string, spectest }
 );
 
-setMemory(instance.exports["moonbit.memory"]);
+const memory = instance.exports['moonbit.memory'] as WebAssembly.Memory;
+memory.grow(3);
+setMemory(memory);
+
 const exports = instance.exports as any;
 exports._start();
 
+const offset = memory.buffer.byteLength / 4;
+exports.set_buffer_offset(offset);
+setBufferOffset(offset);
+
 // remote write
-Deno.test("remote write", () => {
-  const id = exports.write_hello();
-  const result = js_io.readOutputString(id);
-  // console.log(result);
-  assert(result === "Hello, World!");
-  // remote read
-  const id2 = js_io.create()
-  js_io.writeInputString(id2, "Hello");
-  exports.echo(id2);
-  const ret2 = js_io.readOutputString(id2);
-  assert(ret2 === "echo Hello");
-  flush()
+Deno.test("write_bytes", () => {
+  writeBuffer(new Uint8Array([1, 2, 3, 4, 5]));
+  exports.write_bytes_test();
+  const result = readBuffer();
+  expect(result).toEqual(new Uint8Array([2, 3, 4, 5, 6]));
+  flush();
+});
+
+// remote write
+Deno.test("string", () => {
+  writeString("hello");
+  exports.write_string_test();
+  const loaded = readString();
+  expect(loaded).toEqual("hello!");
 });

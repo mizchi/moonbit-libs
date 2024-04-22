@@ -1,6 +1,6 @@
 # mizchi/js_io
 
-Glue library to read/write string on JS WebAssembly
+Create simple shared buffer io both js and moonbit.
 
 ```bash
 $ moon add mizchi/js_io
@@ -17,63 +17,74 @@ I need structured data api but not ready https://github.com/moonbitlang/moonbit-
 Moonbit API
 
 ```rust
-let io = @js_io.new() // Create IO Context
-let io = @js_io.from(id: Int) // Create IO Context from existed id
-
-io.read_input_string() -> String // Read input
-io.read_input_bytes() -> Bytes // Read input
-io.write_output_string(text: String) -> Unit
-io.write_output_bytes(bytes: Bytes) -> Unit
+@js_io.read_buffer()
+@js_io.write_buffer(bytes)
+@js_io.read_string()
+@js_io.write_string(string)
+// Optional
+@js_io.set_buffer_offset(0xFF)
 ```
 
 JS API
 
 ```js
-import { js_io } from "./.mooncakes/mizchi/js_io/mod.js";
-// moonbit js_string and spectest impl
-import { js_string, spectest } from "./.mooncakes/mizchi/js_io/mod.js";
+import { js_string, spectest, flush, setMemory, readBuffer, writeBuffer } from "./.mooncakes/mizchi/js_io/dist/mod.js"
 
-// add this to importObject
-await WebAssembly.instantiateStreaming(fetch("..."), { js_string, spectest, js_io });
-
-// read and write
-const id = js_io.create();
-js_io.writeInputString(id, "Hello"); // write input
-const buf = js_io.readOutputBytes(id); // read as Uint8Array
-const text = js_io.readOutputText(id); // read as text
+// write
+writeBuffer(new Uint8Array([1, 2, 3, 4, 5]));
+// read
+const buffer = readBuffer();
 ```
 
-## Echo example
+## Usage
 
 ```rust
 // Usage
-pub fn echo(id : Int) -> Unit {
-  let io = @js_io.from(id)
-  let input = io.read_input_string()
-  io.write_output_string("echo " + input)
+pub fn write_bytes_test() -> Unit {
+  let bytes = @js_io.read_buffer()
+  for i = 0; i < bytes.length(); i = i + 1 {
+    bytes[i] = bytes[i] + 1
+  }
+  @js_io.write_buffer(bytes)
+  ()
+}
+
+// Optional
+pub fn set_buffer_offset(offset : Int) -> Unit {
+  @js_io.set_buffer_offset(offset)
+  ()
 }
 ```
 
 from js
 
 ```js
-import { js_io } from "./.mooncakes/mizchi/js_io/mod.js";
-import { js_string, spectest, flush, setMemory } from "./.mooncakes/mizchi/js_io/js_io.js"
+import { js_string, spectest, flush, setMemory, readBuffer, writeBuffer, setBufferOffset } from "./.mooncakes/mizchi/js_io/dist/mod.js"
 
 const { instance } = await WebAssembly.instantiateStreaming(
-  // your wasm path
   fetch(new URL("./target/wasm-gc/release/build/echo.wasm", import.meta.url)),
-  { js_string, spectest, js_io }
+  { js_string, spectest }
 );
 setMemory(instance.exports["moonbit.memory"]);
 const exports = instance.exports as any;
 exports._start();
 
+// Optional
+// default js_string uses first page 0~ in memory
+// and js_io uses 32768~ in memory
+// use twice
+{
+  memory.grow(1); // to 128kb
+  exports.set_buffer_offset(0xFF)
+  set_buffer_offset(0xFF)
+}
+
 // echo
-const id = js_io.create();
-js_io.writeInputString(id, "Hello");
-exports.echo(id)
-console.log(js_io.readOutputString(id2)); // echo Hello
+writeBuffer(new Uint8Array([1, 2, 3, 4, 5]));
+exports.write_bytes_test();
+const result = readBuffer();
+console.log(result) // Uint8Array([2, 3, 4, 5, 6])
+flush();
 ```
 
 ## How to develop

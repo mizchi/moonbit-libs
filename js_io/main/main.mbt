@@ -1,19 +1,21 @@
+pub fn set_buffer_offset(offset : Int) -> Unit {
+  @js_io.set_buffer_offset(offset)
+  ()
+}
+
 // Usage
-pub fn write_hello() -> Int {
-  let io = @js_io.IO::new()
-  io.write_output_string("Hello, World!")
-  io.id
+pub fn write_bytes_test() -> Unit {
+  let bytes = @js_io.read_buffer()
+  for i = 0; i < bytes.length(); i = i + 1 {
+    bytes[i] = bytes[i] + 1
+  }
+  @js_io.write_buffer(bytes)
+  ()
 }
 
-pub fn write_bytes() -> Int {
-  let io = @js_io.IO::new()
-  let bytes = "xxx".to_bytes()
-  io.write_output_bytes(bytes)
-  io.id
-}
-
-pub fn echo(id : Int) -> Unit {
-  let io = @js_io.IO::from(id)
-  let input = io.read_input_string()
-  io.write_output_string("echo " + input)
+// Usage
+pub fn write_string_test() -> Unit {
+  let str = @js_io.read_string()
+  @js_io.write_string(str + "!")
+  ()
 }

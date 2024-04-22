@@ -1,7 +1,7 @@
 {
   "link": {
     "wasm-gc": {
-      "exports": ["write_hello", "echo", "write_bytes"]
+      "exports": ["write_bytes_test", "set_buffer_offset", "write_string_test"]
     }
   },
   "import": [

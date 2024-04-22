@@ -1,125 +1,83 @@
-type IO = {
-  input: number[],
-  output: number[],
+// See https://github.com/moonbitlang/moonbit-docs/blob/main/examples/wasm-gc/index.html
+let _memory: WebAssembly.Memory;
+let _offset = 32768;
+
+export function setMemory(newMemory: WebAssembly.Memory) {
+  _memory = newMemory;
 }
 
-function initialize_js_io() {
-  // internal unique id
-  let id = 0;
-  // singleton cache
-  const cache = new Map<number, IO>();
-  return {
-    // shared
-    dispose,
-    // remote api
-    create,
-    read_input,
-    write_output,
-    clear_input,
-    clear_output,
-    // js only api (yet)
-    writeInputString,
-    writeInputBytes,
-    readOutputBytes,
-    readOutputString,
-  }
-  // create a new buffer in host from guest
-  function create(): number {
-    const newId = id++;
-    const io = {
-      input: [],
-      output: [],
-    } as IO;
-    cache.set(newId, io);
-    return newId;
-  }
+export function setBufferOffset(newOffset: number) {
+  _offset = newOffset;
+}
 
-  // read a char from buffer in host
-  function read_input(id: number): number {
-    const buf = cache.get(id)!;
-    if (!buf) throw new Error('buf not found');
-    const char = buf.input.shift();
-    if (char == null) return -1;
-    return char;
-    // return buf.in.push(char);
-  }
-
-  // reset buffer in host
-  function clear_output(id: number) {
-    const buf = cache.get(id)!;
-    buf.output.length = 0;
-  }
-  // reset buffer in host
-  function clear_input(id: number) {
-    const buf = cache.get(id)!;
-    buf.output.length = 0;
-  }
-  // write a char to buffer in host
-  function write_output(id: number, char: number) {
-    const buf = cache.get(id)!;
-    return buf.output.push(char);
-  }
-
-  // js
-  function writeInputString(id: number, text: string) {
-    const buf = cache.get(id)!;
-    buf.input.length = 0;
-    const encoder = new TextEncoder().encode(text);
-    for (const char of encoder) {
-      buf.input.push(char);
+export const [log, flush] = (() => {
+  let buffer: number[] = [];
+  function flush() {
+    if (buffer.length > 0) {
+      const text = new TextDecoder("utf-16").decode(new Uint16Array(buffer).valueOf());
+      console.log(text);
+      buffer = [];
     }
   }
-  // js
-  function writeInputBytes(id: number, bytes: Uint8Array) {
-    const buf = cache.get(id)!;
-    buf.input.length = 0;
-    for (const char of bytes) {
-      buf.input.push(char);
-    }
+  function log(ch: number) {
+    if (ch == '\n'.charCodeAt(0)) { flush(); }
+    else if (ch == '\r'.charCodeAt(0)) { /* noop */ }
+    else { buffer.push(ch); }
   }
+  return [log, flush]
+})();
 
-  // js
-  function readOutputBytes(id: number): Uint8Array {
-    const buf = cache.get(id)!;
-    const b = new Uint8Array(buf.output.slice());
-    buf.output.length = 0;
-    return b;
-  }
-  // js
-  function readOutputString(id: number): string {
-    const buffer = readOutputBytes(id);
-    return new TextDecoder().decode(buffer);
-  }
-
-  // js
-  function dispose(id: number): void {
-    cache.delete(id);
-  }
+export const spectest = {
+  print_char: log
 }
 
-export const js_io = initialize_js_io();
+export const js_string = {
+  new: (offset: number, length: number) => {
+    const bytes = new Uint16Array(_memory.buffer, offset, length);
+    return new TextDecoder("utf-16").decode(bytes);
+  },
+  empty: () => { return "" },
+  log: (string: string) => { console.log(string) },
+  append: (s1: string, s2: string) => { return (s1 + s2) },
+};
 
-export function stringToString(remoteFn: (id: number) => void) {
-  const id = js_io.create()
-  return (input: string) => {
-    js_io.writeInputString(id, input);
-    remoteFn(id);
-    const result = js_io.readOutputString(id);
-    js_io.clear_input(id)
-    js_io.clear_output(id)
-    return result;
+export function writeBuffer(bytes: Uint8Array) {
+  const buf = new Uint8Array(_memory.buffer);
+  const intBytes = intToBytes(bytes.byteLength);
+  buf.set(intBytes, _offset);
+  // auto grow
+  if (buf.byteLength < bytes.byteLength + _offset + intBytes.byteLength) {
+    const newPageSize = Math.ceil((bytes.byteLength + _offset) / 65536);
+    const delta = newPageSize - Math.ceil(_memory.buffer.byteLength / 65536);
+    _memory.grow(delta);
   }
+  buf.set(bytes, intBytes.byteLength + _offset);
 }
 
-export function bytesToBytes(remoteFn: (id: number) => void) {
-  const id = js_io.create()
-  return (input?: Uint8Array) => {
-    input && js_io.writeInputBytes(id, input);
-    remoteFn(id);
-    const result = js_io.readOutputBytes(id);
-    // js_io.dispose(id)
-    js_io.clear_input(id)
-    js_io.clear_output(id)
-    return result;
-  }
+export function readBuffer(): Uint8Array {
+  const buf = new Uint8Array(_memory.buffer);
+  const len = getLength(buf, _offset);
+  return buf.subarray(_offset + 4, _offset + 4 + len);
 }
+
+export function writeString(str: string) {
+  const buf = new TextEncoder().encode(str);
+  writeBuffer(buf);
+}
+
+export function readString(): string {
+  const buf = readBuffer();
+  return new TextDecoder().decode(buf);
+}
+
+function getLength(buffer: Uint8Array, offset: number): number {
+  return new DataView(buffer.buffer, offset, 4).getInt32(0, true);
+}
+
+function intToBytes(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  const dataView = new DataView(buffer);
+  dataView.setInt32(0, value | 0, true);
+  return new Uint8Array(buffer);
+}
+
