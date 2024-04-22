@@ -1,4 +1,5 @@
-const enum DataType {
+// const 
+enum DataType {
   String = 1,
   Int,
   Float,
@@ -110,6 +111,8 @@ function decodeLength(buffer: Uint8Array, offset: number): [len: number, offset:
 }
 
 function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
+  // console.log("[decode:part]", DataType[buffer[offset]])
+
   const dataType = buffer[offset++];
   if (dataType === DataType.Boolean) {
     return [buffer[offset] == 1, offset + 1];

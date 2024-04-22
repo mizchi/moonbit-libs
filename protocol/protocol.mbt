@@ -12,17 +12,17 @@ let data_type_array = 0x06
 
 let data_type_object = 0x07
 
-pub enum Item {
+pub enum Element {
   Int(Int)
   Float(Double)
   String(String)
   Boolean(Bool)
   Null
-  Array(Array[Item])
-  Object(Array[(String, Item)])
+  Array(Array[Element])
+  Object(Array[(String, Element)])
 } derive(Eq, Debug, Show)
 
-pub fn encode(item : Item) -> Bytes {
+pub fn encode(item : Element) -> Bytes {
   encode_part(item)
 }
 
@@ -33,35 +33,6 @@ fn encode_int(value : Int) -> Bytes {
   bytes[2] = value.lsr(16).land(0xFF)
   bytes[3] = value.lsr(24).land(0xFF)
   // }
-  bytes
-}
-
-// JavaScript's TextEncoder.encode
-fn encode_string(s : String) -> Bytes {
-  let result = @vec.Vec::[]
-  for i = 0; i < s.length(); i = i + 1 {
-    let char = s[i]
-    let code = char.to_int()
-    if code < 0x80 {
-      result.push(code)
-    } else if code < 0x800 {
-      result.push((0xC0).lor(code.lsr(6)))
-      result.push((0x80).lor(code.land(0x3F)))
-    } else if code < 0x10000 {
-      result.push((0xE0).lor(code.lsr(12)))
-      result.push((0x80).lor(code.lsr(6).land(0x3F)))
-      result.push((0x80).lor(code.land(0x3F)))
-    } else {
-      result.push((0xF0).lor(code.lsr(18)))
-      result.push((0x80).lor(code.lsr(12).land(0x3F)))
-      result.push((0x80).lor(code.lsr(6).land(0x3F)))
-      result.push((0x80).lor(code.land(0x3F)))
-    }
-  }
-  let bytes = Bytes::make(result.length(), 0)
-  for i = 0; i < result.length(); i = i + 1 {
-    bytes[i] = result[i]
-  }
   bytes
 }
 
@@ -124,22 +95,22 @@ fn encode_boolean_part(v : Bool) -> Bytes {
   buf
 }
 
-fn bytes_to_array(bytes : Bytes) -> Array[Int] {
-  let array = Array::make(bytes.length(), 0)
-  for i = 0; i < bytes.length(); i = i + 1 {
-    array[i] = bytes[i]
-  }
-  return array
-}
-
-fn encode_string_item(s : String) -> Bytes {
-  let text_bytes = encode_string(s)
+fn encode_string_part(s : String) -> Bytes {
+  let text_bytes = @js_io.encode_string(s)
   let len = encode_length(text_bytes.length())
   let bytes = Bytes::make(1 + len.length() + text_bytes.length(), 55)
   bytes[0] = data_type_string
   bytes.blit(1, len, 0, len.length())
   bytes.blit(1 + len.length(), text_bytes, 0, text_bytes.length())
   bytes
+}
+
+fn bytes_to_array(bytes : Bytes) -> Array[Int] {
+  let array = Array::make(bytes.length(), 0)
+  for i = 0; i < bytes.length(); i = i + 1 {
+    array[i] = bytes[i]
+  }
+  return array
 }
 
 fn append_bytes_to_vec(buf : @vec.Vec[Int], bytes : Bytes) -> Unit {
@@ -149,14 +120,14 @@ fn append_bytes_to_vec(buf : @vec.Vec[Int], bytes : Bytes) -> Unit {
   }
 }
 
-fn encode_part(item : Item) -> Bytes {
+fn encode_part(item : Element) -> Bytes {
   match item {
-    Item::Int(v) => encode_int_part(v)
-    Item::Float(v) => encode_float_part(v)
-    Item::String(v) => encode_string_item(v)
-    Item::Boolean(v) => encode_boolean_part(v)
-    Item::Null => encode_null_part()
-    Item::Array(items) => {
+    Element::Int(v) => encode_int_part(v)
+    Element::Float(v) => encode_float_part(v)
+    Element::String(v) => encode_string_part(v)
+    Element::Boolean(v) => encode_boolean_part(v)
+    Element::Null => encode_null_part()
+    Element::Array(items) => {
       let buf = @vec.Vec::[]
       buf.push(data_type_array)
       append_bytes_to_vec(buf, encode_length(items.length()))
@@ -171,13 +142,13 @@ fn encode_part(item : Item) -> Bytes {
       }
       bytes
     }
-    Item::Object(members) => {
+    Element::Object(members) => {
       let buf = @vec.Vec::[]
       buf.push(data_type_object)
       append_bytes_to_vec(buf, encode_length(members.length()))
       for i = 0; i < members.length(); i = i + 1 {
         let (key, item) = members[i]
-        let key_expr = encode_string_item(key)
+        let key_expr = encode_string_part(key)
         append_bytes_to_vec(buf, key_expr)
         let item_expr = encode_part(item)
         append_bytes_to_vec(buf, item_expr)
@@ -233,15 +204,7 @@ test "encode primitives" {
 
 test "encode_string" {
   @assertion.assert_eq(
-    bytes_to_array(encode_string("hello")),
-    [104, 101, 108, 108, 111],
-  )?
-  @assertion.assert_eq(
-    bytes_to_array(encode_string("こんにちは")),
-    [227, 129, 147, 227, 130, 147, 227, 129, 171, 227, 129, 161, 227, 129, 175],
-  )?
-  @assertion.assert_eq(
-    bytes_to_array(encode_string_item("こんにちは")),
+    bytes_to_array(encode_string_part("こんにちは")),
     [
       1, 4, 15, 0, 0, 0, 227, 129, 147, 227, 130, 147, 227, 129, 171, 227, 129, 161,
       227, 129, 175,
@@ -262,29 +225,34 @@ test "encode_float" {
 
 test "encode_item" {
   @assertion.assert_eq(
-    bytes_to_array(encode_part(Item::Int(1))),
+    bytes_to_array(encode_part(Element::Int(1))),
     [2, 4, 4, 0, 0, 0, 1, 0, 0, 0],
   )?
   @assertion.assert_eq(
-    bytes_to_array(encode_part(Item::Float(3.14))),
+    bytes_to_array(encode_part(Element::Float(3.14))),
     [3, 4, 8, 0, 0, 0, 31, 133, 235, 81, 184, 30, 9, 64],
   )?
   @assertion.assert_eq(
-    bytes_to_array(encode_part(Item::String("hello"))),
+    bytes_to_array(encode_part(Element::String("hello"))),
     [1, 4, 5, 0, 0, 0, 104, 101, 108, 108, 111],
   )?
-  @assertion.assert_eq(bytes_to_array(encode_part(Item::Boolean(true))), [4, 1])?
   @assertion.assert_eq(
-    bytes_to_array(encode_part(Item::Boolean(false))),
+    bytes_to_array(encode_part(Element::Boolean(true))),
+    [4, 1],
+  )?
+  @assertion.assert_eq(
+    bytes_to_array(encode_part(Element::Boolean(false))),
     [4, 0],
   )?
-  @assertion.assert_eq(bytes_to_array(encode_part(Item::Null)), [5])?
+  @assertion.assert_eq(bytes_to_array(encode_part(Element::Null)), [5])?
 }
 
 test "encode_array" {
   @assertion.assert_eq(
     bytes_to_array(
-      encode_part(Item::Array([Item::Int(1), Item::Int(2), Item::Int(3)])),
+      encode_part(
+        Element::Array([Element::Int(1), Element::Int(2), Element::Int(3)]),
+      ),
     ),
     [
       // data type
@@ -305,8 +273,12 @@ test "encode_object" {
   @assertion.assert_eq(
     bytes_to_array(
       encode_part(
-        Item::Object(
-          [("a", Item::Int(1)), ("b", Item::Int(2)), ("c", Item::Int(3))],
+        Element::Object(
+          [
+            ("a", Element::Int(1)),
+            ("b", Element::Int(2)),
+            ("c", Element::Int(3)),
+          ],
         ),
       ),
     ),
@@ -320,7 +292,7 @@ test "encode_object" {
 
 /// --------- decode ----------
 
-pub fn decode(bytes : Bytes) -> Item {
+pub fn decode(bytes : Bytes) -> Element {
   let (item, _size) = decode_part(bytes, 0)
   // debug(item)
   // if size != bytes.length() {
@@ -353,8 +325,8 @@ test "decode_int" {
   @assertion.assert_eq(decode_int(array_to_bytes([1, 0, 0, 0])), 1)?
   @assertion.assert_eq(decode_int(array_to_bytes([255, 0, 0, 0])), 255)?
   @assertion.assert_eq(decode_int(array_to_bytes([0, 1, 0, 0])), 256)?
-  assert_decoder(Item::Int(65536))?
-  assert_decoder(Item::Int(256))?
+  assert_decoder(Element::Int(65536))?
+  assert_decoder(Element::Int(256))?
 }
 
 fn decode_length(bytes : Bytes, offset : Int) -> (Int, Int) {
@@ -364,7 +336,7 @@ fn decode_length(bytes : Bytes, offset : Int) -> (Int, Int) {
   (len, offset + 1 + len_size)
 }
 
-fn decode_int_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+fn decode_int_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   // println("in decode_int_item")
   // println(bytes_to_array(bytes))
   let mut offset = offset
@@ -374,7 +346,7 @@ fn decode_int_part(bytes : Bytes, offset : Int) -> (Item, Int) {
   offset = end
   let val_slice = slice_bytes(bytes, offset, len)
   let value = decode_int(val_slice)
-  (Item::Int(value), offset + len)
+  (Element::Int(value), offset + len)
 }
 
 fn pow_double(base : Double, exp : Int) -> Double {
@@ -407,7 +379,7 @@ fn decode_float(bytes : Bytes) -> Double {
   return sign * normal_mantissa * pow_double(2.0, exponent)
 }
 
-fn decode_float_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+fn decode_float_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   let mut offset = offset
   let _data_type = bytes[offset]
   offset += 1
@@ -415,10 +387,10 @@ fn decode_float_part(bytes : Bytes, offset : Int) -> (Item, Int) {
   offset = end
   let val_slice = slice_bytes(bytes, offset, len)
   let value = decode_float(val_slice)
-  (Item::Float(value), offset + len)
+  (Element::Float(value), offset + len)
 }
 
-fn decode_array_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+fn decode_array_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   let mut offset = offset
   let _data_type = bytes[offset]
   offset += 1
@@ -431,22 +403,22 @@ fn decode_array_part(bytes : Bytes, offset : Int) -> (Item, Int) {
     items.push(child)
     offset = child_end
   }
-  (Item::Array(items.to_list().to_array()), offset)
+  (Element::Array(items.to_list().to_array()), offset)
 }
 
-fn decode_object_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+fn decode_object_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   let mut offset = offset
   let _data_type = bytes[offset]
   offset += 1
   let (item_count, end) = decode_length(bytes, offset)
   // println(bytes_to_array(bytes))
   offset = end
-  let items : @vec.Vec[(String, Item)] = @vec.Vec::[]
+  let items : @vec.Vec[(String, Element)] = @vec.Vec::[]
   for i = 0; i < item_count; i = i + 1 {
     let (item, key_end) = decode_string_part(bytes, offset)
     offset = key_end
     match item {
-      Item::String(key) => {
+      Element::String(key) => {
         let (child, child_end) = decode_part(bytes, offset)
         items.push((key, child))
         offset = child_end
@@ -456,61 +428,10 @@ fn decode_object_part(bytes : Bytes, offset : Int) -> (Item, Int) {
         ()
     }
   }
-  (Item::Object(items.to_list().to_array()), offset)
+  (Element::Object(items.to_list().to_array()), offset)
 }
 
-// fn decode_object_part(bytes : Bytes, offset : Int) -> (Item, Int) {
-//   let mut offset = offset
-//   let _data_type = bytes[offset]
-//   offset += 1
-//   let (item_count, end) = decode_length(bytes, offset)
-//   offset = end
-//   let items = @vec.Vec::[]
-//   for i = 0; i < item_count; i = i + 1 {
-//     let (child, key_end) = decode_string_part(bytes, offset)
-//     // items.push(child)
-//     offset = key_end
-
-//     // let (item, end) = decode_part(bytes, offset)
-//     offset = end
-//   }
-//   // TODO: Impl after decode_string_part
-//   (Item::Array([]), offset)
-// }
-
-fn decode_string(bytes : Bytes) -> String {
-  let mut result = ""
-  let mut i = 0
-  while i < bytes.length() {
-    let byte = bytes[i]
-    if byte < 0x80 {
-      // 1バイト文字
-      result += Char::from_int(byte).to_string()
-      i += 1
-    } else if byte < 0xE0 {
-      // 2バイト文字
-      let code = byte.lsl(6).land(0x7FF) + bytes[i + 1].land(0x3F)
-      result += Char::from_int(code).to_string()
-      i += 2
-    } else if byte < 0xF0 {
-      // 3バイト文字
-      let code = byte.lsl(12).land(0xFFFF) + bytes[i + 1].lsl(6).land(0xFFF) + bytes[i +
-        2].land(0x3F)
-      result += Char::from_int(code).to_string()
-      i += 3
-    } else {
-      // 4バイト文字
-      let code = byte.lsl(18).land(0x1FFFFF) + bytes[i + 1].lsl(12).land(
-          0x3FFFF,
-        ) + bytes[i + 2].lsl(6).land(0xFFF) + bytes[i + 3].land(0x3F)
-      result += Char::from_int(code).to_string()
-      i += 4
-    }
-  }
-  result
-}
-
-fn decode_string_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+fn decode_string_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   let mut offset = offset
   let _data_type = bytes[offset]
   offset += 1
@@ -518,19 +439,19 @@ fn decode_string_part(bytes : Bytes, offset : Int) -> (Item, Int) {
   offset = end
   let val_slice = slice_bytes(bytes, offset, len)
   // println(bytes_to_array(val_slice))
-  let value = decode_string(val_slice)
+  let value = @js_io.decode_string(val_slice)
   // TODO: Impl after decode_string_part
-  (Item::String(value), offset + len)
+  (Element::String(value), offset + len)
 }
 
-fn decode_part(bytes : Bytes, offset : Int) -> (Item, Int) {
+fn decode_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   let data_type = bytes[offset]
   if data_type == data_type_null {
-    return (Item::Null, offset + 1)
+    return (Element::Null, offset + 1)
   }
   if data_type == data_type_boolean {
     let value = bytes[offset + 1] == 1
-    return (Item::Boolean(value), offset + 2)
+    return (Element::Boolean(value), offset + 2)
   }
   if data_type == data_type_float {
     return decode_float_part(bytes, offset)
@@ -547,61 +468,61 @@ fn decode_part(bytes : Bytes, offset : Int) -> (Item, Int) {
   if data_type == data_type_object {
     return decode_object_part(bytes, offset)
   }
-  (Item::Null, offset)
+  (Element::Null, offset)
 }
 
-fn assert_decoder(item : Item) -> Result[Unit, String] {
+fn assert_decoder(item : Element) -> Result[Unit, String] {
   @assertion.assert_eq(decode(encode(item)), item)?
   Ok(())
 }
 
 test "decode_null" {
-  assert_decoder(Item::Null)?
+  assert_decoder(Element::Null)?
 }
 
 test "decode_boolean" {
-  assert_decoder(Item::Boolean(true))?
-  assert_decoder(Item::Boolean(false))?
+  assert_decoder(Element::Boolean(true))?
+  assert_decoder(Element::Boolean(false))?
 }
 
 test "decode_int" {
   // assert_decoder(Item::Int(0))?
-  assert_decoder(Item::Int(1))?
-  assert_decoder(Item::Int(-1))?
-  assert_decoder(Item::Int(65536))?
+  assert_decoder(Element::Int(1))?
+  assert_decoder(Element::Int(-1))?
+  assert_decoder(Element::Int(65536))?
 }
 
 test "decode_float" {
-  assert_decoder(Item::Float(-1.0))?
-  assert_decoder(Item::Float(3.14))?
-  assert_decoder(Item::Float(5.5555))?
-  assert_decoder(Item::Float(1000000.0))?
+  assert_decoder(Element::Float(-1.0))?
+  assert_decoder(Element::Float(3.14))?
+  assert_decoder(Element::Float(5.5555))?
+  assert_decoder(Element::Float(1000000.0))?
 }
 
 test "decode_string" {
   // 1 byte character
-  assert_decoder(Item::String("hello"))?
-  assert_decoder(Item::String("world"))?
+  assert_decoder(Element::String("hello"))?
+  assert_decoder(Element::String("world"))?
   // 2 byte character
-  assert_decoder(Item::String("ああああ"))?
+  assert_decoder(Element::String("ああああ"))?
   // 3 byte character
-  assert_decoder(Item::String("吉"))?
+  assert_decoder(Element::String("吉"))?
 }
 
 test "decode_array" {
   // assert_decoder(Item::Array([Item::Int(1), Item::Int(2), Item::Int(3)]))?
-  assert_decoder(Item::Array([]))?
-  assert_decoder(Item::Array([Item::Null]))?
-  assert_decoder(Item::Array([Item::Int(1), Item::Int(2)]))?
-  assert_decoder(Item::Array([Item::Array([Item::Int(2)])]))?
+  assert_decoder(Element::Array([]))?
+  assert_decoder(Element::Array([Element::Null]))?
+  assert_decoder(Element::Array([Element::Int(1), Element::Int(2)]))?
+  assert_decoder(Element::Array([Element::Array([Element::Int(2)])]))?
 }
 
 test "decode_object" {
-  assert_decoder(Item::Object([]))?
-  assert_decoder(Item::Object([("a", Item::Int(1))]))?
+  assert_decoder(Element::Object([]))?
+  assert_decoder(Element::Object([("a", Element::Int(1))]))?
   assert_decoder(
-    Item::Object(
-      [("a", Item::Int(1)), ("b", Item::Int(1)), ("c", Item::Int(1))],
+    Element::Object(
+      [("a", Element::Int(1)), ("b", Element::Int(1)), ("c", Element::Int(1))],
     ),
   )?
 }
