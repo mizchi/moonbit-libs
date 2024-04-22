@@ -1,0 +1,8 @@
+{
+  "link": {
+    "wasm-gc": {
+      "exports": ["run", "fire"]
+    }
+  },
+  "import": ["mizchi/js_io"]
+}
