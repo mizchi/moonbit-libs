@@ -57,7 +57,7 @@ export function writeBuffer(bytes: Uint8Array) {
 export function readBuffer(): Uint8Array {
   const buf = new Uint8Array(_memory.buffer);
   const len = getLength(buf, _offset);
-  return buf.subarray(_offset + 4, _offset + 4 + len);
+  return buf.slice(_offset + 4, _offset + 4 + len);
 }
 
 export function writeString(str: string) {
