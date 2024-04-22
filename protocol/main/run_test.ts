@@ -1,5 +1,5 @@
 import { js_string, spectest, flush, setMemory, readBuffer, writeBuffer } from "../.mooncakes/mizchi/js_io/mod.ts"
-import { Item, decode, encode } from "../mod.ts";
+import { Element, decode, encode } from "../mod.ts";
 import { expect } from "https://deno.land/std@0.214.0/expect/expect.ts";
 
 const { instance } = await WebAssembly.instantiateStreaming(
@@ -13,8 +13,8 @@ const exports = instance.exports as any;
 exports._start();
 
 // TODO: Library API
-function protocol<F extends (...args: Item[]) => Item = (...args: any[]) => any>(fun: () => void) {
-  const f = (...args: Item[]) => {
+function protocol<F extends (...args: Element[]) => Element = (...args: any[]) => any>(fun: () => void) {
+  const f = (...args: Element[]) => {
     const encoded_input = encode(args);
     writeBuffer(encoded_input);
     fun();
@@ -49,7 +49,6 @@ Deno.test("reencode", () => {
   const reencode = protocol(exports.encode_again);
   for (const pattern of encodableTestPatterns) {
     const response = reencode(...pattern);
-    console.log("[js:response]", response)
     expect(response).toEqual(pattern);
   }
   flush()

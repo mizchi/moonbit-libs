@@ -14,18 +14,18 @@ type BinaryFormat = [
   ...number[]
 ];
 
-export type Item = string | number | boolean | null | Array<Item> | { [key: string]: Item };
+export type Element = string | number | boolean | null | Array<Element> | { [key: string]: Element };
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-export function decode(buffer: Uint8Array): Item {
-  const [decodedItem, _offset] = decodeItem(buffer);
-  return decodedItem
+export function decode(buffer: Uint8Array): Element {
+  const [part, _offset] = decodePart(buffer);
+  return part
 }
 
-export function encode(item: Item): Uint8Array {
-  return new Uint8Array(encodeItem(item));
+export function encode(item: Element): Uint8Array {
+  return new Uint8Array(encodePart(item));
 }
 
 function intToBytes(value: number): Uint8Array {
@@ -54,17 +54,17 @@ function encodeInt(value: number): BinaryFormat {
   return [DataType.Int, ...encodeLength(buf.byteLength), ...buf]
 }
 
-function encodeFloatItem(value: number): BinaryFormat {
+function encodeFloatPart(value: number): BinaryFormat {
   const buffer = new ArrayBuffer(8);
   const dataView = new DataView(buffer);
   dataView.setFloat64(0, value, true);
   return [DataType.Float, ...encodeLength(dataView.byteLength), ...new Uint8Array(buffer)];
 }
 
-function encodeArray(item: Array<Item>): BinaryFormat {
-  const len = item.length;
-  const items = item.map((i) => encodeItem(i)).flat();
-  return [DataType.Array, ...encodeLength(len), ...items];
+function encodeArray(part: Array<Element>): BinaryFormat {
+  const len = part.length;
+  const parts = part.map((i) => encodePart(i)).flat();
+  return [DataType.Array, ...encodeLength(len), ...parts];
 }
 
 function encodeString(value: string): BinaryFormat {
@@ -72,36 +72,36 @@ function encodeString(value: string): BinaryFormat {
   return [DataType.String, ...encodeLength(encodedStr.byteLength), ...encodedStr];
 }
 
-function encodeObject(value: Record<string, Item>): BinaryFormat {
+function encodeObject(value: Record<string, Element>): BinaryFormat {
   const keys = Object.keys(value);
   const keyCount = keys.length;
-  const items = keys.map((key) => {
+  const parts = keys.map((key) => {
     const encodedKey = encodeString(key);
-    const encodedValue = encodeItem(value[key]);
+    const encodedValue = encodePart(value[key]);
     return [...encodedKey, ...encodedValue];
   }).flat();
-  return [DataType.Object, ...encodeLength(keyCount), ...items];
+  return [DataType.Object, ...encodeLength(keyCount), ...parts];
 }
 
-function encodeItem(item: Item): number[] {
-  if (typeof item === 'object' && item !== null) {
-    if (Array.isArray(item)) {
-      return encodeArray(item);
+function encodePart(part: Element): number[] {
+  if (typeof part === 'object' && part !== null) {
+    if (Array.isArray(part)) {
+      return encodeArray(part);
     } else {
-      return encodeObject(item);
+      return encodeObject(part);
     }
-  } else if (typeof item === 'string') {
-    return encodeString(item);
-  } else if (item == null) {
+  } else if (typeof part === 'string') {
+    return encodeString(part);
+  } else if (part == null) {
     return encodeNull();
-  } else if (typeof item === 'boolean') {
-    return encodeBoolean(item);
-  } else if (Number.isInteger(item) && typeof item === 'number') {
-    return encodeInt(item as number)
-  } else if (typeof item === 'number') {
-    return encodeFloatItem(item)
+  } else if (typeof part === 'boolean') {
+    return encodeBoolean(part);
+  } else if (Number.isInteger(part) && typeof part === 'number') {
+    return encodeInt(part as number)
+  } else if (typeof part === 'number') {
+    return encodeFloatPart(part)
   }
-  throw new Error(`unknown item type: ${item}`)
+  throw new Error(`unknown element type: ${part}`)
 }
 
 function decodeLength(buffer: Uint8Array, offset: number): [len: number, offset: number] {
@@ -110,7 +110,7 @@ function decodeLength(buffer: Uint8Array, offset: number): [len: number, offset:
   return [dataView.getInt32(0, true), offset + dataView.byteLength];
 }
 
-function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
+function decodePart(buffer: Uint8Array, offset: number = 0): [Element, number] {
   // console.log("[decode:part]", DataType[buffer[offset]])
 
   const dataType = buffer[offset++];
@@ -123,28 +123,27 @@ function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
   const [len, nextOffset] = decodeLength(buffer, offset);
   offset = nextOffset;
   if (dataType === DataType.Array) {
-    const itemCount = len;
-    const items: Item[] = [];
-    for (let i = 0; i < itemCount; i++) {
-      const [decoded, end] = decodeItem(buffer, offset);
-      items.push(decoded);
+    const partCount = len;
+    const parts: Element[] = [];
+    for (let i = 0; i < partCount; i++) {
+      const [decoded, end] = decodePart(buffer, offset);
+      parts.push(decoded);
       offset = end;
     }
-    return [items, offset];
+    return [parts, offset];
   }
 
   if (dataType === DataType.Object) {
-    const result: { [key: string]: Item } = {};
+    const result: { [key: string]: Element } = {};
     const keyCount = len;
     for (let i = 0; i < keyCount; i++) {
-      const [key, keyEnd] = decodeItem(buffer, offset);
+      const [key, keyEnd] = decodePart(buffer, offset);
       if (typeof key !== 'string') {
         throw new Error('key must be string')
       }
       offset = keyEnd;
-      const [item, valueEnd] = decodeItem(buffer, offset);
-      result[key] = item;
-      // items.push(decoded);
+      const [part, valueEnd] = decodePart(buffer, offset);
+      result[key] = part;
       offset = valueEnd;
     }
     return [result, offset];
@@ -171,4 +170,3 @@ function decodeItem(buffer: Uint8Array, offset: number = 0): [Item, number] {
   }
   throw new Error(`unknown data type: ${dataType}`)
 }
-
