@@ -1,13 +1,11 @@
 {
   "name": "mizchi/protocol",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "deps": {
     "mizchi/js_io": "0.1.1"
   },
   "readme": "README.md",
   "repository": "https://github.com/mizchi/moonbit-libs/tree/main/js_io",
   "license": "MIT",
-  "keywords": [
-    "js"
-  ]
+  "keywords": ["js"]
 }
