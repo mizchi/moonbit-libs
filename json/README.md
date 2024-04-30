@@ -13,10 +13,15 @@ $ moon add mizchi/json
 
 moon.pkg.json
 
+Avoid json
+
 ```json
 {
   "import": [
-    "mizchi/json"
+    {
+      "path": "mizchi/json",
+      "alias": "mjson"
+    }
   ]
 }
 ```
@@ -25,6 +30,7 @@ moon.pkg.json
 
 ```rust
 fn main {
+  // use moonbitlang/core/json5
   let j = @json5.parse(
     #|{
     #|  "a": 1.1,
@@ -39,7 +45,7 @@ fn main {
     ,
   ).unwrap()
   // like JSON.stringify({}, null, 2)
-  let s = stringify(j, spaces=2, newline=true)
+  let s = @mjson.stringify(j, spaces=2, newline=true)
 }
 ```
 
