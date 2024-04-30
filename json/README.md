@@ -1,6 +1,11 @@
 # mizchi/json
 
+Note(2024/05/01): `moonbitlang/core` supports `@json5.parse`. Currently only `stringify` is left.
+
+---
+
 simple json parser with simple data structure
+
 
 ```bash
 $ moon add mizchi/json
@@ -20,51 +25,27 @@ moon.pkg.json
 
 ```rust
 fn main {
-  let input =
-    #| {
-    #|  "items": [1],
-    #|  "nested": {
-    #|    "items": [1, 2, 3, 4.5]
+  let j = @json5.parse(
+    #|{
+    #|  "a": 1.1,
+    #|  "b": [1, 2, 3],
+    #|  "c": {
+    #|    "d": 4
     #|  },
-    #|  "items2": [{"a": 1}, {"b": 2}],
-    #|  "next": null
-    #| }
-
-  let parsed = @json.parse(input).unwrap()
-  debug(parsed) // debuggable
-  println(parsed.stringify())
-  //=> {items:[1],nested:{items:[1,2,3,4.5]},items2:[{a:1},{b:2}],next:null}
-
-  // readable json like JSON.stringify(obj, null, 2)
-  println(parsed.stringify(~spaces=2, ~newline=true))
-
-  // build json tree
-  let data = @json.JSONValue::Object(
-    [
-      ("key", @json.JSONValue::String("val")),
-      ("items", @json.JSONValue::Array([@json.JSONValue::IntNumber(1)])),
-    ],
-  )
-  // you can stringify
-  println(data.stringify())
-
-  // handle parse error
-  match @json.parse("{}}") {
-    Err(err) => debug(err)
-    _ => println("unreachable")
-  }
+    #|  "d": null,
+    #|  "e": true,
+    #|  "f": false
+    #|}
+    ,
+  ).unwrap()
+  // like JSON.stringify({}, null, 2)
+  let s = stringify(j, spaces=2, newline=true)
 }
 ```
 
 ## Related works
 
 - https://mooncakes.io/docs/#/peter-jerry-ye/json/
-
-## TODO
-
-- parser generator
-- typescript codegen
-- wit codegen
 
 ## LICENSE
 
