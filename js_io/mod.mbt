@@ -19,9 +19,9 @@ pub fn get_buffer_offset() -> Int {
 pub fn read_buffer() -> Bytes {
   let offset = buffer_offset.val
   let len = read_length(offset)
-  let bytes = Bytes::make(len, 0)
+  let bytes = Bytes::make(len)
   for i = 0; i < len; i = i + 1 {
-    bytes[i] = load8_ffi(offset + 4 + i)
+    bytes[i] = load8_ffi(offset + 4 + i).to_byte()
   }
   bytes
 }
@@ -40,7 +40,7 @@ pub fn write_string(string : String) -> Unit {
 
 // JavaScript's TextEncoder.encode
 pub fn encode_string(s : String) -> Bytes {
-  let result = @vec.Vec::[]
+  let result = []
   for i = 0; i < s.length(); i = i + 1 {
     let char = s[i]
     let code = char.to_int()
@@ -60,9 +60,9 @@ pub fn encode_string(s : String) -> Bytes {
       result.push((0x80).lor(code.land(0x3F)))
     }
   }
-  let bytes = Bytes::make(result.length(), 0)
+  let bytes = Bytes::make(result.length())
   for i = 0; i < result.length(); i = i + 1 {
-    bytes[i] = result[i]
+    bytes[i] = result[i].to_byte()
   }
   bytes
 }
@@ -72,26 +72,31 @@ pub fn decode_string(bytes : Bytes) -> String {
   let mut i = 0
   while i < bytes.length() {
     let byte = bytes[i]
-    if byte < 0x80 {
+    if byte < (0x80).to_byte() {
       // 1 byte character
-      result += Char::from_int(byte).to_string()
+      result += Char::from_int(byte.to_int()).to_string()
       i += 1
-    } else if byte < 0xE0 {
+    } else if byte < (0xE0).to_byte() {
       // 2 byte character
-      let code = byte.lsl(6).land(0x7FF) + bytes[i + 1].land(0x3F)
+      let code = byte.to_int().lsl(6).land(0x7FF) + bytes[i + 1].to_int().land(
+          0x3F,
+        )
       result += Char::from_int(code).to_string()
       i += 2
-    } else if byte < 0xF0 {
+    } else if byte < (0xF0).to_byte() {
       // 3 byte character
-      let code = byte.lsl(12).land(0xFFFF) + bytes[i + 1].lsl(6).land(0xFFF) + bytes[i +
-        2].land(0x3F)
+      let code = byte.to_int().lsl(12).land(0xFFFF) + bytes[i + 1].to_int().lsl(
+          6,
+        ).land(0xFFF) + bytes[i + 2].to_int().land(0x3F)
       result += Char::from_int(code).to_string()
       i += 3
     } else {
       // 4 byte character
-      let code = byte.lsl(18).land(0x1FFFFF) + bytes[i + 1].lsl(12).land(
-          0x3FFFF,
-        ) + bytes[i + 2].lsl(6).land(0xFFF) + bytes[i + 3].land(0x3F)
+      let code = byte.to_int().lsl(18).land(0x1FFFFF) + bytes[i + 1].to_int().lsl(
+          12,
+        ).land(0x3FFFF) + bytes[i + 2].to_int().lsl(6).land(0xFFF) + bytes[i + 3].to_int().land(
+          0x3F,
+        )
       result += Char::from_int(code).to_string()
       i += 4
     }
@@ -113,7 +118,7 @@ fn store_bytes(bytes : Bytes, offset : Int) -> Unit {
     store8_ffi(offset + i, int_bytes[i])
   }
   for i = 0; i < byte_length; i = i + 1 {
-    store8_ffi(offset + 4 + i, bytes[i])
+    store8_ffi(offset + 4 + i, bytes[i].to_int())
   }
 }
 

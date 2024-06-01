@@ -101,7 +101,7 @@ pub fn exec(self : JsRegExp, text : String) -> Option[Array[String]] {
   }
 
   // split array of strings by '\n' and join them with '\n' to get a string
-  let items = @vec.Vec::[]
+  let items = []
   let mut current = ""
   for i = 0; i < buf.length(); i = i + 1 {
     let char = buf[i]
