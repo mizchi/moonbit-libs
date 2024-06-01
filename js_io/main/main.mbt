@@ -7,7 +7,7 @@ pub fn set_buffer_offset(offset : Int) -> Unit {
 pub fn write_bytes_test() -> Unit {
   let bytes = @js_io.read_buffer()
   for i = 0; i < bytes.length(); i = i + 1 {
-    bytes[i] = bytes[i] + 1
+    bytes[i] = (bytes[i].to_int() + 1).to_byte()
   }
   @js_io.write_buffer(bytes)
   ()

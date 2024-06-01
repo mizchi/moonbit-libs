@@ -25,8 +25,8 @@ Avoid `json` to use builtin `@json`
 
 ```rust
 fn main {
-  // use moonbitlang/core/json5
-  let j = @json5.parse(
+  // use moonbitlang/core/json
+  let j = @json.parse(
     #|{
     #|  "a": 1.1,
     #|  "b": [1, 2, 3],

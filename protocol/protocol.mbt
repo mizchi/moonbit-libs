@@ -1,16 +1,16 @@
-let data_type_string = 0x01
+let data_type_string = b'\x01'
 
-let data_type_int = 0x02
+let data_type_int = b'\x02'
 
-let data_type_float = 0x03
+let data_type_float = b'\x03'
 
-let data_type_boolean = 0x04
+let data_type_boolean = b'\x04'
 
-let data_type_null = 0x05
+let data_type_null = b'\x05'
 
-let data_type_array = 0x06
+let data_type_array = b'\x06'
 
-let data_type_object = 0x07
+let data_type_object = b'\x07'
 
 pub enum Element {
   Int(Int)
@@ -27,33 +27,33 @@ pub fn encode(item : Element) -> Bytes {
 }
 
 fn encode_int(value : Int) -> Bytes {
-  let bytes = Bytes::make(4, 0)
-  bytes[0] = value.land(0xFF)
-  bytes[1] = value.lsr(8).land(0xFF)
-  bytes[2] = value.lsr(16).land(0xFF)
-  bytes[3] = value.lsr(24).land(0xFF)
+  let bytes = Bytes::make(4)
+  bytes[0] = value.land(0xFF).to_byte()
+  bytes[1] = value.lsr(8).land(0xFF).to_byte()
+  bytes[2] = value.lsr(16).land(0xFF).to_byte()
+  bytes[3] = value.lsr(24).land(0xFF).to_byte()
   // }
   bytes
 }
 
 fn encode_float(f : Double) -> Bytes {
   let bits = f.reinterpret_as_i64() // 浮動小数点数を64ビット整数として解釈
-  let bytes = Bytes::make(8, 0) // 8バイトの配列を作成し、初期値は0
-  bytes[7] = bits.lsr(56).land((0xFF).to_int64()).to_int()
-  bytes[6] = bits.lsr(48).land((0xFF).to_int64()).to_int()
-  bytes[5] = bits.lsr(40).land((0xFF).to_int64()).to_int()
-  bytes[4] = bits.lsr(32).land((0xFF).to_int64()).to_int()
-  bytes[3] = bits.lsr(24).land((0xFF).to_int64()).to_int()
-  bytes[2] = bits.lsr(16).land((0xFF).to_int64()).to_int()
-  bytes[1] = bits.lsr(8).land((0xFF).to_int64()).to_int()
-  bytes[0] = bits.land((0xFF).to_int64()).to_int()
+  let bytes = Bytes::make(8) // 8バイトの配列を作成し、初期値は0
+  bytes[7] = bits.lsr(56).land((0xFF).to_int64()).to_byte()
+  bytes[6] = bits.lsr(48).land((0xFF).to_int64()).to_byte()
+  bytes[5] = bits.lsr(40).land((0xFF).to_int64()).to_byte()
+  bytes[4] = bits.lsr(32).land((0xFF).to_int64()).to_byte()
+  bytes[3] = bits.lsr(24).land((0xFF).to_int64()).to_byte()
+  bytes[2] = bits.lsr(16).land((0xFF).to_int64()).to_byte()
+  bytes[1] = bits.lsr(8).land((0xFF).to_int64()).to_byte()
+  bytes[0] = bits.land((0xFF).to_int64()).to_byte()
   return bytes
 }
 
 fn encode_length(length : Int) -> Bytes {
   let bytes = encode_int(length)
-  let buf = Bytes::make(1 + bytes.length(), 0)
-  buf[0] = bytes.length()
+  let buf = Bytes::make(1 + bytes.length())
+  buf[0] = bytes.length().to_byte()
   buf.blit(1, bytes, 0, bytes.length())
   buf
 }
@@ -63,10 +63,10 @@ fn encode_int_part(value : Int) -> Bytes {
   let mut offset = 0
   let int_expr = encode_int(value)
   let len_expr = encode_int(int_expr.length())
-  let buf = Bytes::make(1 + int_expr.length() + 1 + int_expr.length(), 0)
+  let buf = Bytes::make(1 + int_expr.length() + 1 + int_expr.length())
   buf[offset] = data_type_int
   offset = offset + 1
-  buf[offset] = len_expr.length()
+  buf[offset] = len_expr.length().to_byte()
   offset = offset + 1
   buf.blit(offset, len_expr, 0, len_expr.length())
   offset = offset + len_expr.length()
@@ -77,7 +77,7 @@ fn encode_int_part(value : Int) -> Bytes {
 fn encode_float_part(value : Double) -> Bytes {
   let float_expr = encode_float(value)
   let len_expr = encode_length(float_expr.length())
-  let buf = Bytes::make(1 + len_expr.length() + float_expr.length(), 0)
+  let buf = Bytes::make(1 + len_expr.length() + float_expr.length())
   buf[0] = data_type_float
   buf.blit(1, len_expr, 0, len_expr.length())
   buf.blit(1 + len_expr.length(), float_expr, 0, float_expr.length())
@@ -85,20 +85,23 @@ fn encode_float_part(value : Double) -> Bytes {
 }
 
 fn encode_null_part() -> Bytes {
-  Bytes::make(1, data_type_null)
+  Bytes::make(1, init=data_type_null)
 }
 
 fn encode_boolean_part(v : Bool) -> Bytes {
-  let buf = Bytes::make(2, 0)
+  let buf = Bytes::make(2)
   buf[0] = data_type_boolean
-  buf[1] = if v { 1 } else { 0 }
+  buf[1] = if v { b'\x01' } else { b'\x00' }
   buf
 }
 
 fn encode_string_part(s : String) -> Bytes {
   let text_bytes = @js_io.encode_string(s)
   let len = encode_length(text_bytes.length())
-  let bytes = Bytes::make(1 + len.length() + text_bytes.length(), 55)
+  let bytes = Bytes::make(
+    1 + len.length() + text_bytes.length(),
+    init=(55).to_byte(),
+  )
   bytes[0] = data_type_string
   bytes.blit(1, len, 0, len.length())
   bytes.blit(1 + len.length(), text_bytes, 0, text_bytes.length())
@@ -108,14 +111,14 @@ fn encode_string_part(s : String) -> Bytes {
 fn bytes_to_array(bytes : Bytes) -> Array[Int] {
   let array = Array::make(bytes.length(), 0)
   for i = 0; i < bytes.length(); i = i + 1 {
-    array[i] = bytes[i]
+    array[i] = bytes[i].to_int()
   }
   return array
 }
 
-fn append_bytes_to_vec(buf : @vec.Vec[Int], bytes : Bytes) -> Unit {
+fn append_bytes_to_vec(buf : Array[Int], bytes : Bytes) -> Unit {
   for i = 0; i < bytes.length(); i = i + 1 {
-    buf.push(bytes[i])
+    buf.push(bytes[i].to_int())
     // buf[i] = bytes[i - offset]
   }
 }
@@ -128,23 +131,23 @@ fn encode_part(item : Element) -> Bytes {
     Element::Boolean(v) => encode_boolean_part(v)
     Element::Null => encode_null_part()
     Element::Array(items) => {
-      let buf = @vec.Vec::[]
-      buf.push(data_type_array)
+      let buf = []
+      buf.push(data_type_array.to_int())
       append_bytes_to_vec(buf, encode_length(items.length()))
       for i = 0; i < items.length(); i = i + 1 {
         let item = items[i]
         let item_expr = encode_part(item)
         append_bytes_to_vec(buf, item_expr)
       }
-      let bytes = Bytes::make(buf.length(), 0)
+      let bytes = Bytes::make(buf.length())
       for i = 0; i < buf.length(); i = i + 1 {
-        bytes[i] = buf[i]
+        bytes[i] = buf[i].to_byte()
       }
       bytes
     }
     Element::Object(members) => {
-      let buf = @vec.Vec::[]
-      buf.push(data_type_object)
+      let buf = []
+      buf.push(data_type_object.to_int())
       append_bytes_to_vec(buf, encode_length(members.length()))
       for i = 0; i < members.length(); i = i + 1 {
         let (key, item) = members[i]
@@ -154,9 +157,9 @@ fn encode_part(item : Element) -> Bytes {
         append_bytes_to_vec(buf, item_expr)
       }
       // to bytes
-      let bytes = Bytes::make(buf.length(), 0)
+      let bytes = Bytes::make(buf.length())
       for i = 0; i < buf.length(); i = i + 1 {
-        bytes[i] = buf[i]
+        bytes[i] = buf[i].to_byte()
       }
       bytes
     }
@@ -191,14 +194,17 @@ test "encode_int" {
 }
 
 test "encode primitives" {
-  @assertion.assert_eq(bytes_to_array(encode_null_part()), [data_type_null])?
+  @assertion.assert_eq(
+    bytes_to_array(encode_null_part()),
+    [data_type_null.to_int()],
+  )?
   @assertion.assert_eq(
     bytes_to_array(encode_boolean_part(true)),
-    [data_type_boolean, 1],
+    [data_type_boolean.to_int(), 1],
   )?
   @assertion.assert_eq(
     bytes_to_array(encode_boolean_part(false)),
-    [data_type_boolean, 0],
+    [data_type_boolean.to_int(), 0],
   )?
 }
 
@@ -303,20 +309,22 @@ pub fn decode(bytes : Bytes) -> Element {
 }
 
 fn slice_bytes(bytes : Bytes, offset : Int, length : Int) -> Bytes {
-  let buf = Bytes::make(length, 0)
+  let buf = Bytes::make(length)
   buf.blit(0, bytes, offset, length)
   buf
 }
 
 fn decode_int(bytes : Bytes) -> Int {
   // let buf = slice_bytes(bytes, 0, 4)
-  bytes[0] + bytes[1].lsl(8) + bytes[2].lsl(16) + bytes[3].lsl(24)
+  bytes[0].to_int() + bytes[1].to_int().lsl(8) + bytes[2].to_int().lsl(16) + bytes[3].to_int().lsl(
+    24,
+  )
 }
 
 fn array_to_bytes(array : Array[Int]) -> Bytes {
-  let bytes = Bytes::make(array.length(), 0)
+  let bytes = Bytes::make(array.length())
   for i = 0; i < array.length(); i = i + 1 {
-    bytes[i] = array[i]
+    bytes[i] = array[i].to_byte()
   }
   bytes
 }
@@ -330,7 +338,7 @@ test "decode_int" {
 }
 
 fn decode_length(bytes : Bytes, offset : Int) -> (Int, Int) {
-  let len_size = bytes[offset]
+  let len_size = bytes[offset].to_int()
   let len_bytes = slice_bytes(bytes, offset + 1, len_size)
   let len = decode_int(len_bytes)
   (len, offset + 1 + len_size)
@@ -360,9 +368,11 @@ fn pow_double(base : Double, exp : Int) -> Double {
 let positive_infinity : Double = 0x7FF0000000000000L.reinterpret_as_double()
 
 fn decode_float(bytes : Bytes) -> Double {
-  let sign = if bytes[7].land(0x80) != 0 { -1.0 } else { 1.0 }
-  let exponent = bytes[7].land(0x7F).lsl(4).lor(bytes[6].lsr(4)) - 1023
-  let mantissa = bytes[6].land(0x0F).to_int64().lsl(48).lor(
+  let sign = if bytes[7].to_int().land(0x80) != 0 { -1.0 } else { 1.0 }
+  let exponent = bytes[7].to_int().land(0x7F).lsl(4).lor(
+      bytes[6].to_int().lsr(4),
+    ) - 1023
+  let mantissa = bytes[6].to_int().land(0x0F).to_int64().lsl(48).lor(
     bytes[5].to_int64().lsl(40),
   ).lor(bytes[4].to_int64().lsl(32)).lor(bytes[3].to_int64().lsl(24)).lor(
     bytes[2].to_int64().lsl(16),
@@ -397,7 +407,7 @@ fn decode_array_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   let (item_count, end) = decode_length(bytes, offset)
   // println(bytes_to_array(bytes))
   offset = end
-  let items = @vec.Vec::[]
+  let items = []
   for i = 0; i < item_count; i = i + 1 {
     let (child, child_end) = decode_part(bytes, offset)
     items.push(child)
@@ -413,7 +423,7 @@ fn decode_object_part(bytes : Bytes, offset : Int) -> (Element, Int) {
   let (item_count, end) = decode_length(bytes, offset)
   // println(bytes_to_array(bytes))
   offset = end
-  let items : @vec.Vec[(String, Element)] = @vec.Vec::[]
+  let items : Array[(String, Element)] = []
   for i = 0; i < item_count; i = i + 1 {
     let (item, key_end) = decode_string_part(bytes, offset)
     offset = key_end
@@ -450,7 +460,7 @@ fn decode_part(bytes : Bytes, offset : Int) -> (Element, Int) {
     return (Element::Null, offset + 1)
   }
   if data_type == data_type_boolean {
-    let value = bytes[offset + 1] == 1
+    let value = bytes[offset + 1].to_int() == 1
     return (Element::Boolean(value), offset + 2)
   }
   if data_type == data_type_float {

@@ -82,13 +82,14 @@ pub fn stringify(
 }
 
 impl ToJson for Array[ToJson] with to_json(self) {
-  @json.JsonValue::Array(@vec.Vec::from_array(self.map(fn(x) { x.to_json() })))
-}
+  @json.JsonValue::Array(self.map(fn(x) { x.to_json() }))
 
-impl ToJson for @vec.Vec[ToJson] with to_json(self) {
-  let new_values : @vec.Vec[@json.JsonValue] = @vec.Vec::new()
-  self.iter(fn(x) { new_values.push(x.to_json()) })
-  @json.JsonValue::Array(new_values)
+  // impl ToJson for Array[ToJson] with to_json(self) {
+  //   let new_values : Array[@json.JsonValue] = Array::new()
+  //   self.iter(fn(x) { new_values.push(x.to_json()) })
+  //   @json.JsonValue::Array(new_values)
+  // }
+
 }
 
 impl ToJson for @map.Map[String, ToJson] with to_json(self) {
@@ -106,7 +107,7 @@ pub fn to_json[T : ToJson](x : T) -> @json.JsonValue {
 }
 
 test {
-  let j = @json5.parse(
+  let j = @json.parse(
     #|{
     #|  "a": 1.1,
     #|  "b": [1, 2, 3],
@@ -122,26 +123,27 @@ test {
   let s = stringify(j, spaces=2, newline=true)
   inspect(
     s,
-    content=#|{
-    #|  a: 1.1,
-    #|  b: [
-    #|    1,
-    #|    2,
-    #|    3
-    #|  ],
-    #|  c: {
-    #|    d: 4
-    #|  },
-    #|  d: null,
-    #|  e: true,
-    #|  f: false
-    #|}
+    content=
+      #|{
+      #|  a: 1.1,
+      #|  b: [
+      #|    1,
+      #|    2,
+      #|    3
+      #|  ],
+      #|  c: {
+      #|    d: 4
+      #|  },
+      #|  d: null,
+      #|  e: true,
+      #|  f: false
+      #|}
     ,
   )?
 }
 
 test {
-  let j = @json5.parse(
+  let j = @json.parse(
     #|{
     #|  "a": 1
     #|}
